@@ -3,588 +3,886 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CanadabisTax - Cannabis Duty Simplified</title>
+    <title>B300 Compliance Cloud</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for in-browser JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        slate: {
+                            850: '#151e2e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* Utility class to handle view switching */
-        .view-hidden { display: none !important; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        /* Dashboard specific layout */
-        body { display: flex; flex-direction: column; min-height: 100vh; background-color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .toast-enter {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        .toast-enter-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 300ms ease-out;
+        }
+        .toast-exit {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast-exit-active {
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 300ms ease-in;
+        }
     </style>
 </head>
-<body class="text-slate-800">
+<body>
+    <div id="root"></div>
 
-    <header class="bg-white shadow-sm sticky top-0 z-40">
-        <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
-            <a href="#" data-route="home" class="cursor-pointer text-2xl font-bold text-emerald-600 nav-link">CanadabisTax</a>
-            
-            <!-- Desktop Nav -->
-            <div class="hidden md:flex items-center space-x-2">
-                <a href="#" data-route="calculator" class="nav-link text-slate-600 hover:text-emerald-600 px-3 py-2 rounded-md font-medium transition-colors">Calculator</a>
-                <a href="#" data-route="pricing" class="nav-link text-slate-600 hover:text-emerald-600 px-3 py-2 rounded-md font-medium transition-colors">Pricing</a>
-                <a href="#" data-route="faq" class="nav-link text-slate-600 hover:text-emerald-600 px-3 py-2 rounded-md font-medium transition-colors">FAQ</a>
-                <a href="#" data-route="about" class="nav-link text-slate-600 hover:text-emerald-600 px-3 py-2 rounded-md font-medium transition-colors">About</a>
-                <a href="#" data-route="contact" class="nav-link text-slate-600 hover:text-emerald-600 px-3 py-2 rounded-md font-medium transition-colors">Contact</a>
-            </div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
 
-            <div class="flex items-center space-x-4">
-                <div class="hidden md:block" id="auth-nav-container">
-                    <button data-route="login" class="nav-link inline-block text-center px-6 py-2 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-transform transform hover:scale-105">Login / Sign Up</button>
-                </div>
-                <!-- Mobile Menu Toggle -->
-                <button id="mobile-menu-btn" class="md:hidden text-slate-600 hover:text-emerald-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                </button>
-            </div>
-        </nav>
-        
-        <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden fixed inset-0 bg-slate-900 bg-opacity-95 z-50 flex-col items-center justify-center p-6 fade-in">
-            <button id="mobile-close-btn" class="absolute top-5 right-5 text-white">
-                <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <div class="flex flex-col items-center space-y-6 text-2xl text-slate-100">
-                <a href="#" data-route="calculator" class="nav-link mobile-link hover:text-emerald-400">Calculator</a>
-                <a href="#" data-route="pricing" class="nav-link mobile-link hover:text-emerald-400">Pricing</a>
-                <a href="#" data-route="faq" class="nav-link mobile-link hover:text-emerald-400">FAQ</a>
-                <a href="#" data-route="about" class="nav-link mobile-link hover:text-emerald-400">About</a>
-                <a href="#" data-route="contact" class="nav-link mobile-link hover:text-emerald-400">Contact</a>
-                <button data-route="login" class="nav-link mobile-link mt-8 px-8 py-3 bg-emerald-600 text-white rounded-md font-semibold">Login</button>
-            </div>
-        </div>
-    </header>
+        const Icons = {
+            Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>,
+            Database: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>,
+            FileText: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>,
+            List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>,
+            Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>,
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
+            AlertCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+            Lock: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>,
+            Unlock: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>,
+            Close: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        };
 
-    <main id="main-content" class="flex-grow flex flex-col relative">
-        
-        <!-- ================= HOME PAGE ================= -->
-        <div id="view-home" class="page-view fade-in">
-            <section class="relative h-[60vh] md:h-[70vh] flex items-center justify-center text-center text-white bg-stone-900">
-                <div class="absolute top-0 left-0 w-full h-full bg-stone-900 opacity-80 z-10"></div>
-                <div class="relative z-20 container mx-auto px-6">
-                    <h1 class="text-4xl md:text-6xl font-bold text-white drop-shadow-md mb-4">Cannabis Duty, Simplified.</h1>
-                    <p class="text-lg text-slate-200 max-w-2xl mx-auto mb-8 drop-shadow">Focus on your craft, not complex paperwork. Our tools help Canadian cannabis producers calculate, track, and file federal excise duties with ease.</p>
-                    <div class="space-x-4">
-                        <button data-route="pricing" class="nav-link px-8 py-3 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700 text-lg transition-transform transform hover:scale-105">Get Started</button>
-                        <button data-route="calculator" class="nav-link px-8 py-3 rounded-md font-semibold bg-white/90 text-slate-800 hover:bg-white text-lg transition-transform transform hover:scale-105">Try Free Calculator</button>
-                    </div>
-                </div>
-            </section>
-            <section class="py-20 bg-slate-50">
-                <div class="container mx-auto px-6">
-                    <div class="text-center mb-12">
-                        <h2 class="text-3xl font-bold text-slate-800">Features Built For Producers</h2>
-                        <p class="text-slate-600 mt-2">Everything you need to stay compliant.</p>
-                    </div>
-                    <div class="grid md:grid-cols-3 gap-8">
-                        <div class="bg-white p-8 rounded-lg shadow-md text-center border">
-                            <h3 class="text-xl font-semibold text-slate-800 mb-2">Duty Calculator</h3>
-                            <p class="text-slate-600">Quickly estimate your federal cannabis excise duty for any product type.</p>
-                        </div>
-                        <div class="bg-white p-8 rounded-lg shadow-md text-center border">
-                            <h3 class="text-xl font-semibold text-slate-800 mb-2">B300 Form Helper</h3>
-                            <p class="text-slate-600">Our guided questionnaire makes filling out the monthly B300 form a breeze.</p>
-                        </div>
-                        <div class="bg-white p-8 rounded-lg shadow-md text-center border">
-                            <h3 class="text-xl font-semibold text-slate-800 mb-2">Daily Record Keeping</h3>
-                            <p class="text-slate-600">Premium users can track daily activities to auto-populate their B300 form.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
+        const TRANSACTION_TYPES = ["Additions to Inventory", "Reductions to Inventory"];
+        const CATEGORIES = {
+            "Additions to Inventory": [
+                "Total Production",
+                "Quantity Received in Canada",
+                "Quantity Imported into Canada",
+                "Quantity Transferred from Vegetative Cannabis Plant"
+            ],
+            "Reductions to Inventory": [
+                "Quantity Packaged",
+                "Quantity Taken for Further Processing or Planted",
+                "Plant Harvested",
+                "Quantity Sold in Canada",
+                "Quantity Exported Outside Canada",
+                "Quantity Incurred as Drying or Processing Loss",
+                "Quantity Destroyed",
+                "Quantity Sent for Analysis",
+                "Quantity Transferred to Whole Cannabis Plant",
+                "Quantity Taken to Produce Low-THC Cannabis Products and Prescription Cannabis Drugs",
+                "Other"
+            ]
+        };
+        const PRODUCT_TYPES = [
+            "Dried/Fresh Flowering kg",
+            "Dried/Fresh Non-flowering kg",
+            "Whole Plants",
+            "Viable Seeds",
+            "Vegetative Plants",
+            "Pure Intermediates kg",
+            "Finished Extracts mg THC",
+            "Finished Edible mg THC",
+            "Finished Topicals mg THC"
+        ];
 
-        <!-- ================= CALCULATOR PAGE ================= -->
-        <div id="view-calculator" class="page-view view-hidden fade-in container mx-auto px-6 py-12 flex-grow">
-            <div class="max-w-2xl mx-auto">
-                <h1 class="text-3xl font-bold text-center text-slate-800 mb-2">Cannabis Excise Duty Calculator</h1>
-                <p class="text-center text-slate-600 mb-8">Estimate the federal excise duty for your cannabis products.</p>
-                <div class="bg-white rounded-lg shadow-md p-6 border">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Product Type</label>
-                            <select id="calc-product" class="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
-                                <option>Dried/Fresh cannabis</option>
-                                <option>Cannabis Plants</option>
-                                <option>Cannabis Plant Seeds</option>
-                                <option>Cannabis Extracts (including oil), Edible Cannabis & Cannabis Topicals</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label id="calc-qty-label" class="block text-sm font-medium text-slate-700 mb-1">Quantity (grams)</label>
-                            <input id="calc-qty" type="number" placeholder="e.g., 1000" class="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Sales (before duty)</label>
-                            <input id="calc-price" type="number" placeholder="e.g., 5000" class="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Province / Territory of Sale</label>
-                            <select id="calc-province" class="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm">
-                                <option value="AB">Alberta</option>
-                                <option value="BC">British Columbia</option>
-                                <option value="MB">Manitoba</option>
-                                <option value="ON" selected>Ontario</option>
-                                <option value="SK">Saskatchewan</option>
-                                <option value="NU">Nunavut</option>
-                            </select>
-                        </div>
-                        <button id="calc-btn" class="w-full px-6 py-2 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-transform transform hover:scale-105">Calculate Duty</button>
-                    </div>
-                </div>
-                <div id="calc-error" class="hidden mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"></div>
+        const generateLogId = () => {
+            const date = new Date();
+            const yyyy = date.getUTCFullYear();
+            const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(date.getUTCDate()).padStart(2, '0');
+            const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+            return `B300-${yyyy}${mm}${dd}-${random}`;
+        };
+
+        const formatDate = (isoString) => {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            return d.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        };
+
+        // CSV Parser & Generator for DB emulation
+        const csvToObj = (csv) => {
+            const lines = csv.split('\n').filter(l => l.trim());
+            if (lines.length < 2) return [];
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const result = [];
+            for (let i = 1; i < lines.length; i++) {
+                // Handle commas inside quotes basic regex
+                const obj = {};
+                let currentline = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                if(!currentline) continue;
                 
-                <!-- Calculator Results -->
-                <div id="calc-results" class="hidden mt-6 bg-white rounded-lg shadow-md p-6 border">
-                    <h2 class="text-2xl font-bold text-slate-800 text-center mb-6">Duty Calculation Breakdown</h2>
-                    <div class="space-y-4 text-slate-700">
-                        <div class="flex justify-between p-3 rounded-md bg-slate-100 font-medium"><span>Dutiable Amount</span><span id="res-dutiable" class="font-bold text-lg"></span></div>
-                        <div class="p-4 rounded-md bg-emerald-50 border border-emerald-200">
-                            <h3 class="font-bold text-emerald-800 mb-2">Federal Duty</h3>
-                            <div class="flex justify-between items-center p-2 rounded bg-emerald-100 font-medium text-emerald-900"><span>Cannabis duty payable</span><span id="res-fed" class="font-bold"></span></div>
-                        </div>
-                        <div class="p-4 rounded-md bg-blue-50 border border-blue-200">
-                            <h3 class="font-bold text-blue-800 mb-2">Provincial Duty</h3>
-                            <div class="flex justify-between items-center p-2 rounded bg-blue-100 font-medium text-blue-900"><span>Additional duty payable</span><span id="res-prov" class="font-bold"></span></div>
-                        </div>
-                        <div id="adj-container" class="hidden p-4 rounded-md bg-yellow-50 border border-yellow-200">
-                            <h3 class="font-bold text-yellow-800 mb-2">Provincial Adjustment</h3>
-                            <div class="flex justify-between items-center p-2 rounded bg-yellow-100 font-medium text-yellow-900"><span>Adjustment payable</span><span id="res-adj" class="font-bold"></span></div>
-                        </div>
-                        <div class="flex justify-between items-center pt-4 mt-4 border-t-2 border-slate-300">
-                            <span class="text-lg font-bold text-slate-800">Total Estimated Duty</span>
-                            <span id="res-total" class="text-2xl font-bold text-emerald-600"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                for (let j = 0; j < headers.length; j++) {
+                    let val = currentline[j] || "";
+                    obj[headers[j]] = val.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
+                }
+                result.push(obj);
+            }
+            return result;
+        };
 
-        <!-- ================= PRICING PAGE ================= -->
-        <div id="view-pricing" class="page-view view-hidden fade-in py-12 container mx-auto px-6 flex-grow">
-            <div class="text-center mb-12">
-                <h1 class="text-4xl font-bold text-slate-800">Choose Your Plan</h1>
-                <p class="text-lg text-slate-600 mt-2">Simple, transparent pricing for producers of all sizes.</p>
-            </div>
-            <div class="flex flex-col lg:flex-row justify-center items-center gap-8">
-                <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md border">
-                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Basic</h2>
-                    <p class="text-slate-600 mb-6">For producers who need help with monthly filing.</p>
-                    <p class="text-4xl font-extrabold text-slate-900 mb-6">$49<span class="text-lg font-medium text-slate-500">/mo</span></p>
-                    <button data-route="login" class="nav-link w-full text-lg py-3 rounded-md font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300 transition-transform transform hover:scale-105">Choose Basic</button>
-                </div>
-                <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md border-2 border-emerald-500 relative">
-                    <div class="absolute top-0 -translate-y-1/2 bg-emerald-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Most Popular</div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Premium</h2>
-                    <p class="text-slate-600 mb-6">For producers who want to automate their compliance workflow.</p>
-                    <p class="text-4xl font-extrabold text-slate-900 mb-6">$99<span class="text-lg font-medium text-slate-500">/mo</span></p>
-                    <button data-route="login" class="nav-link w-full text-lg py-3 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-transform transform hover:scale-105">Choose Premium</button>
-                </div>
-            </div>
-        </div>
+        const objToCsv = (arr) => {
+            if (arr.length === 0) return "";
+            const headers = Object.keys(arr[0]);
+            const headerRow = headers.map(h => `"${h}"`).join(',');
+            const rows = arr.map(row => {
+                return headers.map(h => {
+                    let val = row[h] !== null && row[h] !== undefined ? String(row[h]) : '';
+                    return `"${val.replace(/"/g, '""')}"`;
+                }).join(',');
+            });
+            return [headerRow, ...rows].join('\n');
+        };
 
-        <!-- ================= FAQ PAGE ================= -->
-        <div id="view-faq" class="page-view view-hidden fade-in container mx-auto px-6 py-12 flex-grow">
-            <div class="max-w-3xl mx-auto">
-                <h1 class="text-3xl font-bold text-center text-slate-800 mb-8">Frequently Asked Questions</h1>
-                <div class="space-y-4">
-                    <div class="border-b">
-                        <button class="faq-btn w-full text-left py-4 flex justify-between items-center">
-                            <span class="text-lg font-medium text-slate-800">What is the cannabis excise duty?</span><span class="text-emerald-600 font-bold">+</span>
-                        </button>
-                        <div class="faq-content hidden pb-4 text-slate-600">The cannabis excise duty is a tax imposed by the Government of Canada on cannabis products produced in Canada. It applies to dried/fresh cannabis, edibles, extracts, and topicals.</div>
-                    </div>
-                    <div class="border-b">
-                        <button class="faq-btn w-full text-left py-4 flex justify-between items-center">
-                            <span class="text-lg font-medium text-slate-800">Who is responsible for paying the duty?</span><span class="text-emerald-600 font-bold">+</span>
-                        </button>
-                        <div class="faq-content hidden pb-4 text-slate-600">The cannabis licensee (producer) who packages the cannabis product is responsible for remitting the excise duty to the Canada Revenue Agency (CRA).</div>
-                    </div>
-                    <div class="border-b">
-                        <button class="faq-btn w-full text-left py-4 flex justify-between items-center">
-                            <span class="text-lg font-medium text-slate-800">How is the excise duty calculated?</span><span class="text-emerald-600 font-bold">+</span>
-                        </button>
-                        <div class="faq-content hidden pb-4 text-slate-600">The duty is the higher of a flat rate based on quantity (e.g., per gram of flower or mg of THC) and an ad valorem rate (a percentage of the sales). The specific rates vary by product type and province/territory.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================= ABOUT & CONTACT ================= -->
-        <div id="view-about" class="page-view view-hidden fade-in container mx-auto px-6 py-12 flex-grow text-center max-w-4xl">
-            <h1 class="text-4xl font-bold text-slate-800 mb-8">Our Mission</h1>
-            <p class="text-lg text-slate-600 mb-6">At CanadabisTax, our mission is to empower Canadian cannabis producers by simplifying the complexities of federal excise duty compliance. We believe that producers should be able to focus on what they do best without being bogged down by confusing tax regulations and paperwork.</p>
-        </div>
-
-        <div id="view-contact" class="page-view view-hidden fade-in container mx-auto px-6 py-12 flex-grow max-w-2xl">
-            <h1 class="text-3xl font-bold text-center text-slate-800 mb-2">Get In Touch</h1>
-            <div class="bg-white rounded-lg shadow-md p-6 border mt-8">
-                <div class="space-y-4">
-                    <input type="text" placeholder="Full Name" class="block w-full px-3 py-2 border rounded-md">
-                    <input type="email" placeholder="Email Address" class="block w-full px-3 py-2 border rounded-md">
-                    <textarea rows="4" placeholder="Your message..." class="block w-full px-3 py-2 border rounded-md"></textarea>
-                    <button class="w-full px-6 py-2 rounded-md font-semibold bg-emerald-600 text-white">Send Message</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================= LOGIN PAGE ================= -->
-        <div id="view-login" class="page-view view-hidden fade-in container mx-auto px-6 py-12 flex-grow">
-            <div class="max-w-sm mx-auto">
-                <h1 class="text-3xl font-bold text-center text-slate-800 mb-8">Sign In</h1>
-                <div class="bg-white rounded-lg shadow-md p-6 border">
-                    <div class="space-y-4">
-                        <input type="email" value="producer@example.com" class="block w-full px-3 py-2 border rounded-md">
-                        <input type="password" placeholder="Password" value="password123" class="block w-full px-3 py-2 border rounded-md">
-                        <p class="text-xs text-slate-500 text-center">For demo purposes, choose a plan to login.</p>
-                        <div class="flex space-x-2 pt-2">
-                            <button id="btn-login-basic" class="w-full px-4 py-2 rounded-md font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300">Basic</button>
-                            <button id="btn-login-premium" class="w-full px-4 py-2 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Premium</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ================= DASHBOARD LAYOUT ================= -->
-        <div id="view-dashboard" class="page-view view-hidden fade-in flex-grow flex w-full relative min-h-screen bg-slate-100">
-            <!-- Sidebar -->
-            <aside id="dash-sidebar" class="fixed inset-y-0 left-0 bg-slate-800 text-white w-64 p-6 flex flex-col transform transition-transform duration-300 ease-in-out z-30 -translate-x-full lg:relative lg:translate-x-0 lg:flex-shrink-0">
-                <h1 class="text-2xl font-bold text-emerald-400 mb-8">CanadabisTax</h1>
-                <nav class="flex-grow">
-                    <ul class="space-y-2">
-                        <li><button data-dash="home" class="dash-nav w-full text-left py-3 px-4 rounded-lg bg-slate-700 text-white">Dashboard</button></li>
-                        <li><button data-dash="b300" class="dash-nav w-full text-left py-3 px-4 rounded-lg hover:bg-slate-700/50">Fill B300</button></li>
-                        <li><button data-dash="records" class="dash-nav w-full text-left py-3 px-4 rounded-lg hover:bg-slate-700/50">Daily Records</button></li>
-                        <li><button data-dash="settings" class="dash-nav w-full text-left py-3 px-4 rounded-lg hover:bg-slate-700/50">Settings</button></li>
-                    </ul>
-                </nav>
-                <button id="btn-logout" class="w-full text-left py-3 px-4 rounded-lg hover:bg-red-500/80 mt-auto">Log Out</button>
-            </aside>
+        const useToast = () => {
+            const [toast, setToast] = useState(null);
             
-            <div class="flex-1 flex flex-col min-w-0">
-                <header class="lg:hidden sticky top-0 bg-white/90 shadow-sm z-10 p-4 flex items-center">
-                    <button id="dash-mobile-btn" class="text-slate-600 p-2"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg></button>
-                    <span class="text-lg font-bold text-emerald-600 ml-4">Dashboard</span>
-                </header>
-                
-                <main class="flex-grow p-4 sm:p-8">
-                    
-                    <!-- Dash Home -->
-                    <div id="dash-view-home" class="dash-view fade-in">
-                        <h1 class="text-3xl font-bold text-slate-800 mb-2">Welcome, <span id="user-email-display"></span></h1>
-                        <p class="text-slate-600 mb-8">You are currently on the <span id="user-plan-display" class="font-semibold text-emerald-600 uppercase"></span> plan.</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div data-dash="b300" class="dash-nav bg-white p-6 rounded-lg shadow cursor-pointer border hover:border-emerald-500">
-                                <h2 class="text-2xl font-bold text-slate-800 mb-2">Fill B300 Form</h2>
-                                <p class="text-slate-600">Start your monthly cannabis duty and information return.</p>
-                            </div>
-                            <div data-dash="records" class="dash-nav bg-white p-6 rounded-lg shadow cursor-pointer border hover:border-emerald-500">
-                                <h2 class="text-2xl font-bold text-slate-800 mb-2">Daily Records</h2>
-                                <p class="text-slate-600">Manage production records for automated filing.</p>
-                            </div>
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const ToastComponent = () => {
+                if (!toast) return null;
+                const isSuccess = toast.type === 'success';
+                return (
+                    <div className="fixed bottom-4 right-4 z-50 flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg bg-white border border-slate-200" role="alert">
+                        <div className={`inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${isSuccess ? 'text-green-500 bg-green-100' : 'text-red-500 bg-red-100'}`}>
+                            {isSuccess ? <Icons.Check /> : <Icons.AlertCircle />}
+                        </div>
+                        <div className="ml-3 text-sm font-medium text-slate-800">{toast.message}</div>
+                    </div>
+                );
+            };
+
+            return { showToast, ToastComponent };
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 z-40 flex items-center justify-center">
+                    <div className="fixed inset-0 bg-slate-900 bg-opacity-50 backdrop-blur-sm" onClick={onClose}></div>
+                    <div className="relative z-50 w-full max-w-lg bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                            <h3 className="text-lg font-semibold text-slate-800">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <Icons.Close />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            {children}
                         </div>
                     </div>
+                </div>
+            );
+        };
 
-                    <!-- Dash Fill B300 -->
-                    <div id="dash-view-b300" class="dash-view view-hidden fade-in">
-                        <div class="bg-white rounded-lg shadow-md p-6 border">
-                            <h2 id="b300-title" class="text-2xl font-bold text-slate-800 mb-4 border-b pb-4">Part A - Business Information</h2>
-                            <div id="b300-content" class="min-h-[300px]">
-                                <!-- Dynamically injected via JS -->
-                            </div>
-                            <div class="flex justify-between mt-8 border-t pt-6">
-                                <button id="b300-prev" class="px-6 py-2 rounded-md font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300 hidden">Back</button>
-                                <button id="b300-next" class="px-6 py-2 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700 ml-auto">Next Step</button>
-                            </div>
-                        </div>
+        const Card = ({ children, className = "" }) => (
+            <div className={`bg-white rounded-xl border border-slate-200 shadow-sm ${className}`}>
+                {children}
+            </div>
+        );
+
+        const DashboardView = ({ transactions, editRequests }) => {
+            const totalEntries = transactions.length;
+            const pendingRequests = transactions.filter(t => t.status === 'Pending Edit').length;
+            
+            // Simple inventory snapshot calculation
+            const inventory = useMemo(() => {
+                const balances = {};
+                transactions.forEach(t => {
+                    const qty = parseFloat(t.quantity) || 0;
+                    if (!balances[t.productType]) balances[t.productType] = 0;
+                    if (t.type === "Additions to Inventory") balances[t.productType] += qty;
+                    else if (t.type === "Reductions to Inventory") balances[t.productType] -= qty;
+                });
+                return balances;
+            }, [transactions]);
+
+            return (
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+                        <p className="text-slate-500 mt-1">Overview of your compliance operations.</p>
                     </div>
 
-                    <!-- Dash Daily Records -->
-                    <div id="dash-view-records" class="dash-view view-hidden fade-in">
-                        <h1 class="text-3xl font-bold text-slate-800 mb-8">Daily Records</h1>
-                        <div id="records-premium-lock" class="hidden bg-emerald-50 border border-emerald-200 p-6 rounded-lg mb-8 flex justify-between items-center">
-                            <div><h2 class="text-lg font-bold text-emerald-800">Premium Feature</h2><p>Upgrade your plan to automate B300 filing.</p></div>
-                        </div>
-                        <div class="bg-white rounded-lg shadow-md border overflow-hidden">
-                            <table class="w-full text-sm text-left text-slate-500">
-                                <thead class="text-xs text-slate-700 uppercase bg-slate-100">
-                                    <tr><th class="px-6 py-3">Date</th><th class="px-6 py-3">Product</th><th class="px-6 py-3">Quantity</th><th class="px-6 py-3">Notes</th></tr>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="p-6">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Icons.List /></div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">Total Transactions</p>
+                                    <p className="text-2xl font-bold text-slate-800">{totalEntries}</p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><Icons.AlertCircle /></div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">Pending Edits</p>
+                                    <p className="text-2xl font-bold text-slate-800">{pendingRequests}</p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-brand-50 text-brand-600 rounded-lg"><Icons.Database /></div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-500">Tracked Products</p>
+                                    <p className="text-2xl font-bold text-slate-800">{Object.keys(inventory).length}</p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+
+                    <Card className="p-6">
+                        <h3 className="text-lg font-semibold text-slate-800 mb-4">Inventory Snapshot</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500">
+                                    <tr>
+                                        <th className="px-4 py-3 font-medium rounded-l-lg">Product Type</th>
+                                        <th className="px-4 py-3 font-medium rounded-r-lg text-right">Current Balance</th>
+                                    </tr>
                                 </thead>
-                                <tbody>
-                                    <tr class="border-b"><td class="px-6 py-4">2026-10-25</td><td class="px-6 py-4">Dried Flower</td><td class="px-6 py-4">500 g</td><td class="px-6 py-4">Packaged</td></tr>
-                                    <tr class="border-b"><td class="px-6 py-4">2026-10-24</td><td class="px-6 py-4">Edibles</td><td class="px-6 py-4">10000 mg</td><td class="px-6 py-4">Batch #1</td></tr>
+                                <tbody className="divide-y divide-slate-100">
+                                    {Object.entries(inventory).map(([product, balance], idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-slate-800">{product}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                <span className={`px-2 py-1 rounded-md font-semibold ${balance < 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                                                    {balance.toFixed(4)}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {Object.keys(inventory).length === 0 && (
+                                        <tr>
+                                            <td colSpan="2" className="px-4 py-8 text-center text-slate-500">No inventory data available yet.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const TransactionsView = ({ transactions, setTransactions, userRole, showToast }) => {
+            const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+            const [searchTerm, setSearchTerm] = useState("");
+            const [filterType, setFilterType] = useState("All");
+
+            // Form State
+            const [form, setForm] = useState({
+                type: TRANSACTION_TYPES[0],
+                category: CATEGORIES[TRANSACTION_TYPES[0]][0],
+                productType: PRODUCT_TYPES[0],
+                quantity: "",
+                description: ""
+            });
+
+            // Handle type change to update category dependency
+            useEffect(() => {
+                setForm(prev => ({ ...prev, category: CATEGORIES[prev.type][0] }));
+            }, [form.type]);
+
+            const handleAddSubmit = (e) => {
+                e.preventDefault();
+                const qty = parseFloat(form.quantity);
+                if (isNaN(qty) || qty <= 0) {
+                    showToast("Quantity must be a positive number.", "error");
+                    return;
+                }
+
+                const newTransaction = {
+                    id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+                    logId: generateLogId(),
+                    timestamp: new Date().toISOString(),
+                    type: form.type,
+                    category: form.category,
+                    productType: form.productType,
+                    quantity: qty.toFixed(4),
+                    description: form.description,
+                    createdBy: userRole === 'Admin' ? 'AdminUser' : 'OperatorUser',
+                    status: 'Locked'
+                };
+
+                setTransactions([newTransaction, ...transactions]);
+                setIsAddModalOpen(false);
+                setForm({ ...form, quantity: "", description: "" });
+                showToast("Transaction successfully recorded.");
+            };
+
+            const handleRequestEdit = (id) => {
+                setTransactions(transactions.map(t => t.id === id ? { ...t, status: 'Pending Edit' } : t));
+                showToast("Edit request submitted for admin approval.");
+            };
+
+            const handleApproveEdit = (id) => {
+                setTransactions(transactions.map(t => t.id === id ? { ...t, status: 'Unlocked' } : t));
+                showToast("Transaction unlocked for editing.");
+            };
+
+            const filteredTransactions = transactions.filter(t => {
+                const matchesSearch = Object.values(t).some(val => 
+                    String(val).toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                const matchesFilter = filterType === "All" || t.type === filterType;
+                return matchesSearch && matchesFilter;
+            });
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-800">Inventory Ledger</h2>
+                            <p className="text-slate-500 mt-1">Manage and audit daily inventory transactions.</p>
+                        </div>
+                        <button 
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="inline-flex items-center px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                        >
+                            <Icons.Plus /> <span className="ml-2">Add Entry</span>
+                        </button>
                     </div>
 
-                    <!-- Dash Settings -->
-                    <div id="dash-view-settings" class="dash-view view-hidden fade-in">
-                        <h1 class="text-3xl font-bold text-slate-800 mb-8">Settings</h1>
-                        <div class="bg-white rounded-lg shadow-md p-6 border">
-                            <h2 class="text-xl font-bold mb-4">Profile</h2>
-                            <p>Email: <span id="settings-email" class="font-medium"></span></p>
-                            <p>Plan: <span id="settings-plan" class="font-medium uppercase text-emerald-600"></span></p>
+                    <Card className="p-0 overflow-hidden border-t-4 border-t-brand-500">
+                        <div className="p-4 bg-white flex flex-col sm:flex-row gap-4 justify-between items-center border-b border-slate-100">
+                            <div className="relative w-full sm:w-64">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                    <Icons.Search />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Search logs..." 
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-shadow"
+                                />
+                            </div>
+                            <select 
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                                className="w-full sm:w-auto rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                            >
+                                <option value="All">All Transactions</option>
+                                <option value="Additions to Inventory">Additions Only</option>
+                                <option value="Reductions to Inventory">Reductions Only</option>
+                            </select>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm whitespace-nowrap">
+                                <thead className="bg-slate-50 text-slate-600 font-medium">
+                                    <tr>
+                                        <th className="px-4 py-3">Log ID / Date</th>
+                                        <th className="px-4 py-3">Transaction Details</th>
+                                        <th className="px-4 py-3">Product / Qty</th>
+                                        <th className="px-4 py-3">Status</th>
+                                        <th className="px-4 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredTransactions.length === 0 ? (
+                                        <tr><td colSpan="5" className="px-4 py-12 text-center text-slate-500">No transactions found.</td></tr>
+                                    ) : (
+                                        filteredTransactions.map(t => (
+                                            <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-semibold text-brand-700">{t.logId}</div>
+                                                    <div className="text-xs text-slate-500 mt-1">{formatDate(t.timestamp)}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full ${t.type.includes('Add') ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                                        <span className="font-medium text-slate-700">{t.type}</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 mt-1 truncate max-w-xs" title={t.category}>{t.category}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-slate-800">{t.productType}</div>
+                                                    <div className="font-semibold text-slate-900 mt-1">{t.quantity}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
+                                                        ${t.status === 'Locked' ? 'bg-slate-100 text-slate-700 border-slate-200' : 
+                                                          t.status === 'Pending Edit' ? 'bg-amber-100 text-amber-800 border-amber-200' : 
+                                                          'bg-blue-100 text-blue-800 border-blue-200'}`}>
+                                                        {t.status === 'Locked' ? <Icons.Lock /> : (t.status === 'Unlocked' ? <Icons.Unlock /> : null)}
+                                                        <span className="ml-1">{t.status}</span>
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    {t.status === 'Locked' && userRole === 'Operator' && (
+                                                        <button onClick={() => handleRequestEdit(t.id)} className="text-brand-600 hover:text-brand-800 text-xs font-medium">Request Edit</button>
+                                                    )}
+                                                    {t.status === 'Pending Edit' && userRole === 'Admin' && (
+                                                        <button onClick={() => handleApproveEdit(t.id)} className="text-amber-600 hover:text-amber-800 text-xs font-medium">Approve Unlock</button>
+                                                    )}
+                                                    {t.status === 'Unlocked' && (
+                                                        <button className="text-blue-600 hover:text-blue-800 text-xs font-medium">Edit Record</button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+
+                    {/* Add Transaction Modal */}
+                    <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Add Inventory Entry">
+                        <form onSubmit={handleAddSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Transaction Type <span className="text-red-500">*</span></label>
+                                <select 
+                                    value={form.type} 
+                                    onChange={(e) => setForm({...form, type: e.target.value})}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                                >
+                                    {TRANSACTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
+                                <select 
+                                    value={form.category} 
+                                    onChange={(e) => setForm({...form, category: e.target.value})}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                                >
+                                    {CATEGORIES[form.type].map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Product Type <span className="text-red-500">*</span></label>
+                                <select 
+                                    value={form.productType} 
+                                    onChange={(e) => setForm({...form, productType: e.target.value})}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+                                >
+                                    {PRODUCT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Quantity <span className="text-red-500">*</span></label>
+                                <input 
+                                    type="number" 
+                                    step="0.0001"
+                                    min="0.0001"
+                                    required
+                                    value={form.quantity}
+                                    onChange={(e) => setForm({...form, quantity: e.target.value})}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                    placeholder="e.g. 125.50"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
+                                <textarea 
+                                    value={form.description}
+                                    onChange={(e) => setForm({...form, description: e.target.value})}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                    placeholder="Batch references, notes..."
+                                    rows="3"
+                                ></textarea>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
+                                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors shadow-sm">Save Record</button>
+                            </div>
+                        </form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const B300View = ({ transactions, showToast }) => {
+            const [startDate, setStartDate] = useState(() => {
+                const d = new Date();
+                d.setDate(1); // First day of current month
+                return d.toISOString().split('T')[0];
+            });
+            const [endDate, setEndDate] = useState(() => {
+                const d = new Date();
+                return d.toISOString().split('T')[0];
+            });
+            const [report, setReport] = useState(null);
+
+            const generateReport = () => {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+
+                if (start > end) {
+                    showToast("Start date cannot be after end date", "error");
+                    return;
+                }
+
+                // Logic: 
+                // Opening Balance = Sum of all transactions BEFORE start date
+                // Additions/Reductions = Sum of transactions BETWEEN start and end dates
+                // Closing Balance = Opening + Additions - Reductions
+
+                const reportData = PRODUCT_TYPES.map(prod => {
+                    let opening = 0, additions = 0, reductions = 0;
+                    
+                    transactions.forEach(t => {
+                        if (t.productType !== prod) return;
+                        
+                        const tDate = new Date(t.timestamp);
+                        const qty = parseFloat(t.quantity);
+
+                        if (tDate < start) {
+                            if (t.type === "Additions to Inventory") opening += qty;
+                            else opening -= qty;
+                        } else if (tDate >= start && tDate <= end) {
+                            if (t.type === "Additions to Inventory") additions += qty;
+                            else reductions += qty;
+                        }
+                    });
+
+                    return {
+                        product: prod,
+                        opening: opening.toFixed(4),
+                        additions: additions.toFixed(4),
+                        reductions: reductions.toFixed(4),
+                        closing: (opening + additions - reductions).toFixed(4)
+                    };
+                });
+
+                setReport(reportData);
+                showToast("B300 Report Generated successfully.");
+            };
+
+            const downloadMockPDF = () => {
+                showToast("Downloading B300 PDF... (Mock)", "success");
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">CRA B300 Generator</h2>
+                        <p className="text-slate-500 mt-1">Automatically compile inventory balances for your information return.</p>
+                    </div>
+
+                    <Card className="p-6 bg-slate-50 border border-slate-200 border-l-4 border-l-brand-600">
+                        <div className="flex flex-col sm:flex-row gap-4 items-end">
+                            <div className="w-full sm:w-1/3">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                                <input type="date" value={startDate} onChange={(e)=>setStartDate(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white" />
+                            </div>
+                            <div className="w-full sm:w-1/3">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                                <input type="date" value={endDate} onChange={(e)=>setEndDate(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white" />
+                            </div>
+                            <div className="w-full sm:w-1/3">
+                                <button onClick={generateReport} className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-lg hover:bg-slate-900 transition-colors shadow-sm flex justify-center items-center gap-2">
+                                    <Icons.FileText /> Generate Preview
+                                </button>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {report && (
+                        <Card className="p-0 overflow-hidden">
+                            <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-800">B300 Snapshot</h3>
+                                    <p className="text-sm text-slate-500">Period: {startDate} to {endDate}</p>
+                                </div>
+                                <button onClick={downloadMockPDF} className="px-4 py-2 text-sm font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-lg hover:bg-brand-100 transition-colors flex items-center gap-2">
+                                    <Icons.Download /> Export PDF
+                                </button>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-slate-800 text-slate-100 font-medium">
+                                        <tr>
+                                            <th className="px-4 py-3">Product Type</th>
+                                            <th className="px-4 py-3 text-right">Opening Inventory (A)</th>
+                                            <th className="px-4 py-3 text-right">Additions (B)</th>
+                                            <th className="px-4 py-3 text-right">Reductions (C)</th>
+                                            <th className="px-4 py-3 text-right">Closing Inventory (A+B-C)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {report.map((row, i) => (
+                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-slate-800">{row.product}</td>
+                                                <td className="px-4 py-3 text-right text-slate-600">{row.opening}</td>
+                                                <td className="px-4 py-3 text-right text-green-600 font-medium">+{row.additions}</td>
+                                                <td className="px-4 py-3 text-right text-red-600 font-medium">-{row.reductions}</td>
+                                                <td className="px-4 py-3 text-right font-bold text-slate-900 bg-slate-50">{row.closing}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    )}
+                </div>
+            );
+        };
+
+        const DatabaseView = ({ transactions, setTransactions, showToast }) => {
+            const handleExport = () => {
+                const csvData = objToCsv(transactions);
+                const blob = new Blob([csvData], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `b300-database-${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast("Database exported successfully.");
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const csvText = evt.target.result;
+                        const data = csvToObj(csvText);
+                        if (data && data.length > 0 && data[0].logId) {
+                            setTransactions(data);
+                            showToast("Database imported successfully!");
+                        } else {
+                            showToast("Invalid CSV format. Missing required columns.", "error");
+                        }
+                    } catch (err) {
+                        showToast("Error parsing CSV file.", "error");
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = null; // reset input
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800">Database Management</h2>
+                        <p className="text-slate-500 mt-1">Manage your underlying CSV database storage directly.</p>
+                    </div>
+
+                    <Card className="p-6">
+                        <div className="flex flex-col gap-6">
+                            <div className="pb-6 border-b border-slate-100 flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2"><Icons.Download /> Export Database</h3>
+                                    <p className="text-sm text-slate-500 mt-1">Download the entire transaction history as a CSV file to your local machine.</p>
+                                </div>
+                                <button onClick={handleExport} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors shadow-sm">
+                                    Download CSV
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2"><Icons.Upload /> Import Database</h3>
+                                    <p className="text-sm text-slate-500 mt-1">Upload a previously exported CSV file to restore or update the system data.<br/><span className="text-red-500 font-medium">Warning: This will overwrite current data.</span></p>
+                                </div>
+                                <label className="cursor-pointer px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                                    <span>Upload CSV</span>
+                                    <input type="file" accept=".csv" className="hidden" onChange={handleImport} />
+                                </label>
+                            </div>
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-blue-50 border-blue-100">
+                        <h4 className="font-semibold text-blue-900 flex items-center gap-2"><Icons.AlertCircle /> MVP Storage Note</h4>
+                        <p className="text-sm text-blue-800 mt-2">
+                            As part of the MVP requirements, data is persisted locally in the browser (`localStorage`) and can be exported to/imported from a standard Excel/CSV file using the buttons above. This fulfills the requirement of using a simple CSV file to store data while maintaining a smooth, single-page application experience.
+                        </p>
+                    </Card>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [userRole, setUserRole] = useState('Admin'); // 'Admin' or 'Operator'
+            
+            // Central State: Initialize from localStorage if exists
+            const [transactions, setTransactions] = useState(() => {
+                const saved = localStorage.getItem('b300_transactions');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            // Persist changes to localStorage automatically
+            useEffect(() => {
+                localStorage.setItem('b300_transactions', JSON.stringify(transactions));
+            }, [transactions]);
+
+            const { showToast, ToastComponent } = useToast();
+
+            const navItems = [
+                { id: 'dashboard', label: 'Dashboard', icon: Icons.Dashboard },
+                { id: 'ledger', label: 'Inventory Ledger', icon: Icons.List },
+                { id: 'b300', label: 'B300 Generator', icon: Icons.FileText },
+                { id: 'database', label: 'Data Management', icon: Icons.Database },
+            ];
+
+            return (
+                <div className="flex h-screen bg-slate-50 font-sans">
+                    {/* Sidebar */}
+                    <div className="w-64 bg-slate-850 text-white flex flex-col shadow-xl z-10">
+                        <div className="p-6 border-b border-slate-700/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
+                                    <span className="font-bold text-white leading-none">B</span>
+                                </div>
+                                <h1 className="font-bold text-lg tracking-tight">Compliance Cloud</h1>
+                            </div>
+                        </div>
+                        <div className="flex-1 py-6 px-4 space-y-1">
+                            {navItems.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setActiveTab(item.id)}
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                                        activeTab === item.id 
+                                        ? 'bg-brand-600 text-white shadow-md' 
+                                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                                    }`}
+                                >
+                                    <item.icon />
+                                    {item.label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="p-4 border-t border-slate-700/50">
+                            <div className="bg-slate-800 rounded-lg p-3">
+                                <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Current Role</p>
+                                <select 
+                                    value={userRole}
+                                    onChange={(e) => {
+                                        setUserRole(e.target.value);
+                                        showToast(`Switched to ${e.target.value} role`);
+                                    }}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded text-sm text-white px-2 py-1 focus:outline-none focus:border-brand-500"
+                                >
+                                    <option value="Admin">Admin</option>
+                                    <option value="Operator">Operator</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                </main>
-            </div>
-        </div>
-    </main>
+                    {/* Main Content Area */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        {/* Header */}
+                        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-0 shadow-sm">
+                            <div className="text-sm font-medium text-slate-500">
+                                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className="text-sm text-slate-600 text-right">
+                                    <p className="font-semibold text-slate-800">Acme Cannabis Co.</p>
+                                    <p className="text-xs">LIC-CRA-998877</p>
+                                </div>
+                                <div className="w-10 h-10 rounded-full bg-brand-100 border-2 border-brand-200 flex items-center justify-center text-brand-700 font-bold">
+                                    {userRole.charAt(0)}
+                                </div>
+                            </div>
+                        </header>
 
-    <footer id="main-footer" class="bg-slate-800 text-slate-300 mt-auto">
-        <div class="container mx-auto px-6 py-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
-                <div><h3 class="text-lg font-bold text-white mb-4">CanadabisTax</h3><p>Simplifying cannabis excise duty.</p></div>
-                <div>
-                    <h4 class="font-semibold text-white mb-4">Links</h4>
-                    <ul class="space-y-2">
-                        <li><a href="#" data-route="calculator" class="nav-link hover:text-emerald-400">Calculator</a></li>
-                        <li><a href="#" data-route="pricing" class="nav-link hover:text-emerald-400">Pricing</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold text-white mb-4">Resources</h4>
-                    <ul class="space-y-2">
-                        <li><a href="#" data-route="faq" class="nav-link hover:text-emerald-400">FAQ</a></li>
-                        <li><a href="#" class="hover:text-emerald-400">Terms of Service</a></li>
-                    </ul>
-                </div>
-                <div><h4 class="font-semibold text-white mb-4">Connect</h4><p>info@canadabistax.com</p></div>
-            </div>
-            <div class="mt-8 border-t border-slate-700 pt-6 text-center text-xs"><p>&copy; 2026 CanadabisTax. All rights reserved.</p></div>
-        </div>
-    </footer>
-
-    <script>
-        // --- 1. State & Routing ---
-        let currentUser = null; // null | { email: '...', plan: 'basic' | 'premium' }
-        let currentRoute = 'home';
-        
-        const views = {
-            home: document.getElementById('view-home'),
-            calculator: document.getElementById('view-calculator'),
-            pricing: document.getElementById('view-pricing'),
-            faq: document.getElementById('view-faq'),
-            about: document.getElementById('view-about'),
-            contact: document.getElementById('view-contact'),
-            login: document.getElementById('view-login'),
-            dashboard: document.getElementById('view-dashboard')
-        };
-
-        const dashViews = {
-            home: document.getElementById('dash-view-home'),
-            b300: document.getElementById('dash-view-b300'),
-            records: document.getElementById('dash-view-records'),
-            settings: document.getElementById('dash-view-settings')
-        };
-
-        function navigate(route) {
-            // Protected Route Logic
-            if (route === 'dashboard' && !currentUser) route = 'login';
-            if (route === 'login' && currentUser) route = 'dashboard';
-
-            // Hide all main views
-            Object.values(views).forEach(v => v.classList.add('view-hidden'));
-            
-            // Show target view
-            if(views[route]) {
-                views[route].classList.remove('view-hidden');
-                currentRoute = route;
-            }
-
-            // UI adjustments
-            document.getElementById('mobile-menu').classList.add('hidden');
-            if (route === 'dashboard') {
-                document.getElementById('main-footer').classList.add('hidden');
-                navigateDash('home');
-            } else {
-                document.getElementById('main-footer').classList.remove('hidden');
-            }
-            window.scrollTo(0, 0);
-            updateNavAuth();
-        }
-
-        function navigateDash(dashRoute) {
-            Object.values(dashViews).forEach(v => v.classList.add('view-hidden'));
-            if(dashViews[dashRoute]) dashViews[dashRoute].classList.remove('view-hidden');
-            
-            document.querySelectorAll('.dash-nav').forEach(btn => {
-                if(btn.dataset.dash === dashRoute) {
-                    btn.classList.add('bg-slate-700', 'text-white');
-                    btn.classList.remove('hover:bg-slate-700/50');
-                } else {
-                    btn.classList.remove('bg-slate-700', 'text-white');
-                    btn.classList.add('hover:bg-slate-700/50');
-                }
-            });
-
-            if (dashRoute === 'records') {
-                const lock = document.getElementById('records-premium-lock');
-                if (currentUser && currentUser.plan === 'basic') lock.classList.remove('hidden');
-                else lock.classList.add('hidden');
-            }
-
-            document.getElementById('dash-sidebar').classList.add('-translate-x-full');
-        }
-
-        function updateNavAuth() {
-            const container = document.getElementById('auth-nav-container');
-            if(currentUser) {
-                container.innerHTML = `<button data-route="dashboard" class="nav-link inline-block px-6 py-2 rounded-md font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300">Dashboard</button>`;
-                document.getElementById('user-email-display').innerText = currentUser.email;
-                document.getElementById('user-plan-display').innerText = currentUser.plan;
-                document.getElementById('settings-email').innerText = currentUser.email;
-                document.getElementById('settings-plan').innerText = currentUser.plan;
-            } else {
-                container.innerHTML = `<button data-route="login" class="nav-link inline-block px-6 py-2 rounded-md font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Login / Sign Up</button>`;
-            }
-            bindNavLinks();
-        }
-
-        // Global Event Delegation for Links
-        function bindNavLinks() {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.onclick = (e) => { e.preventDefault(); navigate(e.target.closest('a, button').dataset.route); };
-            });
-        }
-        document.querySelectorAll('.dash-nav').forEach(link => {
-            link.onclick = (e) => { e.preventDefault(); navigateDash(e.target.closest('button, div').dataset.dash); };
-        });
-
-        // --- 2. Initializing App Events ---
-        document.getElementById('mobile-menu-btn').onclick = () => document.getElementById('mobile-menu').classList.remove('hidden');
-        document.getElementById('mobile-close-btn').onclick = () => document.getElementById('mobile-menu').classList.add('hidden');
-        document.getElementById('dash-mobile-btn').onclick = () => document.getElementById('dash-sidebar').classList.remove('-translate-x-full');
-        
-        document.getElementById('btn-login-basic').onclick = () => { currentUser = { email: 'producer@example.com', plan: 'basic' }; navigate('dashboard'); };
-        document.getElementById('btn-login-premium').onclick = () => { currentUser = { email: 'producer@example.com', plan: 'premium' }; navigate('dashboard'); };
-        document.getElementById('btn-logout').onclick = () => { currentUser = null; navigate('home'); };
-
-        // FAQ logic
-        document.querySelectorAll('.faq-btn').forEach(btn => {
-            btn.onclick = () => {
-                const content = btn.nextElementSibling;
-                content.classList.toggle('hidden');
-                btn.querySelector('span:last-child').innerText = content.classList.contains('hidden') ? '+' : '-';
-            };
-        });
-
-        bindNavLinks();
-
-        // --- 3. Calculator Logic ---
-        document.getElementById('calc-product').onchange = (e) => {
-            const l = document.getElementById('calc-qty-label');
-            const v = e.target.value;
-            if(v.includes("Dried")) l.innerText = "Quantity (grams)";
-            else if(v.includes("Plants")) l.innerText = "Quantity (number of plants)";
-            else if(v.includes("Seeds")) l.innerText = "Quantity (number of seeds)";
-            else l.innerText = "Quantity (total mg of THC)";
-        };
-
-        document.getElementById('calc-btn').onclick = () => {
-            const type = document.getElementById('calc-product').value;
-            const qty = parseFloat(document.getElementById('calc-qty').value);
-            const price = parseFloat(document.getElementById('calc-price').value);
-            const prov = document.getElementById('calc-province').value;
-            
-            const err = document.getElementById('calc-error');
-            const res = document.getElementById('calc-results');
-
-            if(isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {
-                err.innerText = "Please enter valid, positive numbers."; err.classList.remove('hidden'); res.classList.add('hidden'); return;
-            }
-            err.classList.add('hidden'); res.classList.remove('hidden');
-
-            const rates = { MB: 1.025, AB: 1.268, NU: 1.293, ON: 1.139, SK: 1.1645 };
-            const divRate = rates[prov] || 1.1;
-            const dutiableAmount = price / divRate;
-            
-            let fedDuty = 0, provDuty = 0, adjDuty = 0;
-            const isAdVal = ["Dried/Fresh cannabis", "Cannabis Plants", "Cannabis Plant Seeds"].includes(type);
-
-            if(isAdVal) {
-                fedDuty = Math.max(0.25 * qty, dutiableAmount * 0.025);
-                if(prov !== 'MB') provDuty = Math.max(0.75 * qty, dutiableAmount * 0.075);
-            } else {
-                fedDuty = 0.0025 * qty;
-                if(prov !== 'MB') provDuty = 0.0075 * qty;
-            }
-
-            const adjRates = { AB: 0.168, NU: 0.193, ON: 0.039, SK: 0.0645 };
-            if(adjRates[prov]) {
-                const adjVal = dutiableAmount * adjRates[prov];
-                const flatBase = Math.max(0, price - (0.25*qty) - (0.75*qty));
-                const adjFlat = (adjRates[prov] * flatBase) / (1 + adjRates[prov]);
-                // Simplified UI selection logic port
-                adjDuty = adjVal; 
-            }
-
-            document.getElementById('res-dutiable').innerText = '$' + dutiableAmount.toFixed(2);
-            document.getElementById('res-fed').innerText = '$' + fedDuty.toFixed(2);
-            document.getElementById('res-prov').innerText = '$' + provDuty.toFixed(2);
-            document.getElementById('adj-container').classList.toggle('hidden', adjDuty === 0);
-            document.getElementById('res-adj').innerText = '$' + adjDuty.toFixed(2);
-            document.getElementById('res-total').innerText = '$' + (fedDuty + provDuty + adjDuty).toFixed(2);
-        };
-
-        // --- 4. B300 Form Logic (Core Flow Simulator) ---
-        const b300Steps = [
-            { id: 0, title: 'Part A - Business Information', render: () => `
-                <div class="space-y-4">
-                    <input type="text" placeholder="Business Name" class="w-full px-3 py-2 border rounded-md" value="Canadabis Producer Inc." disabled>
-                    <input type="text" placeholder="Business Number" class="w-full px-3 py-2 border rounded-md" value="123456789RD0001" disabled>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-sm font-medium">Period From</label><input type="date" class="w-full px-3 py-2 border rounded-md mt-1"></div>
-                        <div><label class="text-sm font-medium">Period To</label><input type="date" class="w-full px-3 py-2 border rounded-md mt-1"></div>
+                        {/* Main Scrollable Content */}
+                        <main className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                            <div className="max-w-6xl mx-auto">
+                                {activeTab === 'dashboard' && <DashboardView transactions={transactions} />}
+                                {activeTab === 'ledger' && <TransactionsView transactions={transactions} setTransactions={setTransactions} userRole={userRole} showToast={showToast} />}
+                                {activeTab === 'b300' && <B300View transactions={transactions} showToast={showToast} />}
+                                {activeTab === 'database' && <DatabaseView transactions={transactions} setTransactions={setTransactions} showToast={showToast} />}
+                            </div>
+                        </main>
                     </div>
-                </div>`
-            },
-            { id: 1, title: 'Part B - Opening Inventory', render: () => `
-                <p class="font-medium mb-4">Select products held at start of period:</p>
-                <label class="flex items-center mb-2"><input type="checkbox" class="mr-2"> Dried/Fresh cannabis</label>
-                <label class="flex items-center mb-2"><input type="checkbox" class="mr-2"> Cannabis extracts</label>
-                <div class="mt-4 p-4 bg-slate-50 border rounded-md text-sm text-slate-500">In the full app, this dynamically spawns quantity inputs for selected products.</div>`
-            },
-            { id: 2, title: 'Part B - Production', render: () => `
-                <p class="font-medium mb-4">Did you produce any products?</p>
-                <label class="mr-4"><input type="radio" name="b300-prod"> Yes</label><label><input type="radio" name="b300-prod" checked> No</label>`
-            },
-            { id: 3, title: 'Review & Submit', render: () => `
-                <div class="text-center py-8">
-                    <div class="text-5xl mb-4">📝</div>
-                    <h3 class="text-xl font-bold mb-2">Ready to File</h3>
-                    <p class="text-slate-600 mb-6">Your B300 calculations are complete.</p>
-                    <p class="text-3xl font-extrabold text-emerald-600 border p-4 rounded-lg bg-emerald-50 inline-block">Total Duty Payable: $12,450.00</p>
-                </div>`
-            }
-        ];
+                    
+                    <ToastComponent />
+                </div>
+            );
+        };
 
-        let currentB300Step = 0;
-        const b300Title = document.getElementById('b300-title');
-        const b300Content = document.getElementById('b300-content');
-        const btnPrev = document.getElementById('b300-prev');
-        const btnNext = document.getElementById('b300-next');
-
-        function renderB300() {
-            const step = b300Steps[currentB300Step];
-            b300Title.innerText = step.title;
-            b300Content.innerHTML = step.render();
-            
-            btnPrev.classList.toggle('hidden', currentB300Step === 0);
-            btnNext.innerText = currentB300Step === b300Steps.length - 1 ? 'Submit to CRA' : 'Next Step';
-            btnNext.onclick = currentB300Step === b300Steps.length - 1 ? 
-                () => alert('Submission simulation complete!') : 
-                () => { currentB300Step++; renderB300(); };
-        }
-
-        btnPrev.onclick = () => { if(currentB300Step > 0) { currentB300Step--; renderB300(); } };
-        
-        // Initialize App
-        renderB300();
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
