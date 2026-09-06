@@ -1,67 +1,38 @@
 <!DOCTYPE html>
 <html lang="en-CA">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>B300 Compliance Cloud</title>
-  <style>
-    *{box-sizing:border-box}html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6;color:#111827}
-    body{display:flex;flex-direction:column;overflow:hidden}.topbar{height:54px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.03);z-index:10}.brand-wrap{position:relative}.brand{border:0;background:transparent;display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;color:#111827;cursor:pointer;padding:7px 9px;border-radius:9px}.brand:hover{background:#f3f4f6}.brand-mark{width:27px;height:27px;border-radius:8px;background:#059669;color:#fff;display:grid;place-items:center;font-size:13px}.chev{font-size:11px;color:#6b7280}.menu{position:absolute;top:43px;left:0;width:290px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 30px rgba(15,23,42,.14);padding:8px;display:none}.menu.open{display:block}.menu-title{padding:7px 10px 5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af}.menu button{width:100%;border:0;background:#fff;text-align:left;border-radius:9px;padding:10px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}.menu button:hover{background:#f3f4f6}.menu button.active{background:#ecfdf5}.menu strong{display:block;font-size:13px}.menu small{display:block;color:#6b7280;margin-top:3px;line-height:1.35}.badge{align-self:flex-start;font-size:10px;font-weight:800;border-radius:999px;padding:3px 7px;background:#e5e7eb;color:#4b5563}.active .badge{background:#d1fae5;color:#047857}.spacer{flex:1}.mode-label{font-size:12px;color:#6b7280}.mode-label b{color:#111827}.isolation{font-size:11px;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:999px;padding:5px 9px;white-space:nowrap}.frame{flex:1;width:100%;border:0;min-height:0;background:#f3f4f6}.loading{position:absolute;inset:54px 0 0;display:grid;place-items:center;background:#f3f4f6;color:#6b7280;font-size:13px;z-index:1;pointer-events:none;opacity:0;transition:opacity .15s}.loading.show{opacity:1}@media(max-width:700px){.mode-label,.isolation{display:none}.topbar{padding:0 9px}.brand{font-size:14px}.menu{width:min(290px,calc(100vw - 18px))}}
-  </style>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>B300 Compliance Cloud</title>
+<style>
+*{box-sizing:border-box}html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f3f4f6;color:#111827}body{min-height:100vh}.hidden{display:none!important}.login{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#f8fafc,#eef2f7)}.login-card{width:min(920px,100%);background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 24px 60px rgba(15,23,42,.12);overflow:hidden;display:grid;grid-template-columns:1.05fr .95fr}.login-brand{padding:44px;background:#0f172a;color:#fff}.mark{width:46px;height:46px;border-radius:13px;background:#10b981;display:grid;place-items:center;font-weight:900;margin-bottom:24px}.login-brand h1{font-size:28px;margin:0 0 12px}.login-brand p{color:#cbd5e1;line-height:1.6;margin:0}.shared{margin-top:28px;padding:14px;border:1px solid #334155;background:#111c2e;border-radius:12px;color:#d1fae5;font-size:13px;line-height:1.5}.form-side{padding:44px}.form-side h2{margin:0 0 8px}.muted{color:#6b7280;font-size:13px;line-height:1.45}.field{margin-top:18px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:7px;color:#374151}.field input{width:100%;padding:12px 13px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;outline:none}.field input:focus{border-color:#10b981;box-shadow:0 0 0 3px #d1fae5}.btn{width:100%;margin-top:20px;border:0;background:#059669;color:#fff;font-weight:800;padding:12px 14px;border-radius:10px;cursor:pointer}.btn:hover{background:#047857}.error{display:none;margin-top:14px;padding:10px 12px;border-radius:9px;background:#fef2f2;color:#b91c1c;font-size:13px}.error.show{display:block}.accounts{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:18px}.account{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:12px}.account b{font-size:12px}.account code{font-size:11px;background:#f3f4f6;border-radius:6px;padding:2px 5px}.prototype{margin-top:16px;font-size:11px;color:#9ca3af;line-height:1.45}.workspace{height:100vh;display:flex;flex-direction:column}.topbar{height:56px;display:flex;align-items:center;gap:14px;padding:0 16px;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 1px 2px rgba(0,0,0,.03);z-index:5}.brand{display:flex;align-items:center;gap:9px;font-weight:850}.brand-mark{width:29px;height:29px;border-radius:8px;background:#059669;color:#fff;display:grid;place-items:center;font-size:12px}.workspace-name{font-size:12px;color:#6b7280}.spacer{flex:1}.db-badge{font-size:11px;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:999px;padding:5px 9px}.user{font-size:12px;text-align:right}.user b{display:block}.logout{border:1px solid #d1d5db;background:#fff;padding:7px 10px;border-radius:8px;cursor:pointer;font-weight:700;color:#374151}.frame{flex:1;width:100%;min-height:0;border:0;background:#f3f4f6}@media(max-width:760px){.login-card{grid-template-columns:1fr}.login-brand,.form-side{padding:28px}.db-badge,.workspace-name{display:none}.user{display:none}}
+</style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-wrap">
-      <button class="brand" id="brandBtn" aria-haspopup="true" aria-expanded="false">
-        <span class="brand-mark">B3</span><span>B300 Compliance Cloud</span><span class="chev">▼</span>
-      </button>
-      <div class="menu" id="versionMenu" role="menu">
-        <div class="menu-title">Compare product experiences</div>
-        <button id="legacyBtn" type="button"><span><strong>Legacy</strong><small>Existing ledger-first compliance workflow.</small></span><span class="badge">OLD</span></button>
-        <button id="v2Btn" type="button"><span><strong>Batch Manager v2</strong><small>New action-first workflow with isolated data.</small></span><span class="badge">NEW</span></button>
-      </div>
+<section id="loginView" class="login">
+  <div class="login-card">
+    <div class="login-brand"><div class="mark">B3</div><h1>B300 Compliance Cloud</h1><p>One shared compliance database with role-specific workspaces. Operator uses the legacy compliance workflow; Inventory Specialist uses the new Batch Manager.</p><div class="shared"><b>Shared data model</b><br>Both workspaces read and write the same inventory transaction database and location settings.</div></div>
+    <div class="form-side"><h2>Sign in</h2><div class="muted">Use one of the prototype accounts below. Your account determines which workspace is available.</div>
+      <form id="loginForm"><div class="field"><label>Username</label><input name="username" autocomplete="username" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Sign in</button><div id="loginError" class="error">Invalid username or password.</div></form>
+      <div class="accounts"><div class="account"><span><b>Operator</b><br><span class="muted">V1 / Legacy</span></span><span><code>operator</code><br><code>Operator2026!</code></span></div><div class="account"><span><b>Inventory Specialist</b><br><span class="muted">V2 / Batch Manager</span></span><span><code>inventory</code><br><code>Inventory2026!</code></span></div></div>
+      <div class="prototype">Prototype login only. This site is hosted on static GitHub Pages, so these client-side credentials are for workflow demonstration and are not production-grade authentication.</div>
     </div>
-    <div class="mode-label">Viewing: <b id="modeName">Legacy</b></div>
-    <div class="spacer"></div>
-    <div class="isolation" id="isolationLabel">Separate data stores</div>
-  </header>
-  <div class="loading" id="loading">Switching workspace…</div>
-  <iframe id="appFrame" class="frame" title="B300 Compliance Cloud workspace" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals" referrerpolicy="same-origin"></iframe>
-
-  <script>
-    (() => {
-      const frame = document.getElementById('appFrame');
-      const menu = document.getElementById('versionMenu');
-      const brand = document.getElementById('brandBtn');
-      const modeName = document.getElementById('modeName');
-      const loading = document.getElementById('loading');
-      const legacyBtn = document.getElementById('legacyBtn');
-      const v2Btn = document.getElementById('v2Btn');
-      const views = {
-        legacy: { src: './legacy.html', name: 'Legacy', button: legacyBtn },
-        v2: { src: './batch-manager-v2.html', name: 'Batch Manager v2', button: v2Btn }
-      };
-      const getRequestedView = () => new URLSearchParams(location.search).get('view') === 'v2' ? 'v2' : 'legacy';
-      let current = getRequestedView();
-      function closeMenu(){ menu.classList.remove('open'); brand.setAttribute('aria-expanded','false'); }
-      function openView(view, push = true){
-        if (!views[view]) view = 'legacy';
-        current = view; loading.classList.add('show');
-        frame.src = views[view].src;
-        modeName.textContent = views[view].name;
-        [legacyBtn,v2Btn].forEach(b => b.classList.remove('active'));
-        views[view].button.classList.add('active');
-        if (push) history.pushState({view},'',`?view=${view}`);
-        closeMenu();
-      }
-      brand.addEventListener('click', e => { e.stopPropagation(); const isOpen = menu.classList.toggle('open'); brand.setAttribute('aria-expanded', String(isOpen)); });
-      legacyBtn.addEventListener('click', () => openView('legacy'));
-      v2Btn.addEventListener('click', () => openView('v2'));
-      document.addEventListener('click', closeMenu);
-      frame.addEventListener('load', () => loading.classList.remove('show'));
-      addEventListener('popstate', () => openView(getRequestedView(), false));
-      openView(current, false);
-    })();
-  </script>
-</body>
-</html>
+  </div>
+</section>
+<section id="workspaceView" class="workspace hidden">
+  <header class="topbar"><div class="brand"><span class="brand-mark">B3</span><span>B300 Compliance Cloud</span></div><div class="workspace-name" id="workspaceName"></div><div class="spacer"></div><div class="db-badge">Shared database</div><div class="user"><b id="userName"></b><span id="userRole"></span></div><button id="logoutBtn" class="logout">Sign out</button></header>
+  <iframe id="appFrame" class="frame" title="B300 workspace" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals" referrerpolicy="same-origin"></iframe>
+</section>
+<script>
+(()=>{
+ const SESSION_KEY='b300_auth_session';
+ const ACCOUNTS={operator:{password:'Operator2026!',name:'Operations User',role:'Operator',workspace:'v1',src:'./legacy.html'},inventory:{password:'Inventory2026!',name:'Inventory Specialist',role:'Inventory Specialist',workspace:'v2',src:'./batch-manager-v2.html'}};
+ const loginView=document.getElementById('loginView'),workspaceView=document.getElementById('workspaceView'),frame=document.getElementById('appFrame');
+ const readSession=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch(_){return null}};
+ const validSession=s=>s&&ACCOUNTS[s.username]&&ACCOUNTS[s.username].workspace===s.workspace;
+ function showLogin(){frame.src='about:blank';workspaceView.classList.add('hidden');loginView.classList.remove('hidden');}
+ function openWorkspace(session){const account=ACCOUNTS[session.username];if(!account)return showLogin();loginView.classList.add('hidden');workspaceView.classList.remove('hidden');document.getElementById('workspaceName').textContent=account.workspace==='v2'?'Batch Manager v2':'Legacy V1';document.getElementById('userName').textContent=account.name;document.getElementById('userRole').textContent=account.role;frame.src=account.src;history.replaceState(null,'',location.pathname);}
+ document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),username=String(fd.get('username')||'').trim().toLowerCase(),password=String(fd.get('password')||''),account=ACCOUNTS[username];if(!account||account.password!==password){document.getElementById('loginError').classList.add('show');return}const session={username,workspace:account.workspace,role:account.role,signedInAt:new Date().toISOString()};sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));document.getElementById('loginError').classList.remove('show');openWorkspace(session)};
+ document.getElementById('logoutBtn').onclick=()=>{sessionStorage.removeItem(SESSION_KEY);showLogin()};
+ const session=readSession();if(validSession(session))openWorkspace(session);else showLogin();
+})();
+</script>
+</body></html>
