@@ -9,30 +9,37 @@
 <body>
 <section id="loginView" class="login">
   <div class="login-card">
-    <div class="login-brand"><div class="mark">B3</div><h1>B300 Compliance Cloud</h1><p>One shared compliance database with role-specific workspaces. Operator uses the legacy compliance workflow; Inventory Specialist uses the new Batch Manager.</p><div class="shared"><b>Shared data model</b><br>Both workspaces read and write the same inventory transaction database and location settings.</div></div>
-    <div class="form-side"><h2>Sign in</h2><div class="muted">Use one of the prototype accounts below. Your account determines which workspace is available.</div>
+    <div class="login-brand"><div class="mark">B3</div><h1>B300 Compliance Cloud</h1><p>One shared operational record, presented through two role-specific workspaces: inventory teams work with batches and actions; compliance teams work with transactions, controls and B300 reporting.</p><div class="shared"><b>Shared browser demo data</b><br>Both workspaces read the same <code>b300_transactions</code>, batch metadata and location settings in this browser. This is intentionally a demo data model, not a multi-device backend.</div></div>
+    <div class="form-side"><h2>Sign in</h2><div class="muted">Choose the role you want to demo. The account controls the workflow and information density, not the underlying operational truth.</div>
       <form id="loginForm"><div class="field"><label>Username</label><input name="username" autocomplete="username" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Sign in</button><div id="loginError" class="error">Invalid username or password.</div></form>
-      <div class="accounts"><div class="account"><span><b>Operator</b><br><span class="muted">V1 / Legacy</span></span><span><code>operator</code><br><code>Operator2026!</code></span></div><div class="account"><span><b>Inventory Specialist</b><br><span class="muted">V2 / Batch Manager</span></span><span><code>inventory</code><br><code>Inventory2026!</code></span></div></div>
-      <div class="prototype">Prototype login only. This site is hosted on static GitHub Pages, so these client-side credentials are for workflow demonstration and are not production-grade authentication.</div>
+      <div class="accounts">
+        <div class="account"><span><b>Compliance Specialist</b><br><span class="muted">Compliance Workspace · ledger & B300 reports</span></span><span><code>operator</code><br><code>Operator2026!</code></span></div>
+        <div class="account"><span><b>Inventory Specialist</b><br><span class="muted">Inventory Workspace · batch operations</span></span><span><code>inventory</code><br><code>Inventory2026!</code></span></div>
+      </div>
+      <div class="prototype">Prototype login only. Static GitHub Pages stores these demo credentials client-side and is not production-grade authentication.</div>
     </div>
   </div>
 </section>
 <section id="workspaceView" class="workspace hidden">
-  <header class="topbar"><div class="brand"><span class="brand-mark">B3</span><span>B300 Compliance Cloud</span></div><div class="workspace-name" id="workspaceName"></div><div class="spacer"></div><div class="db-badge">Shared database</div><div class="user"><b id="userName"></b><span id="userRole"></span></div><button id="logoutBtn" class="logout">Sign out</button></header>
+  <header class="topbar"><div class="brand"><span class="brand-mark">B3</span><span>B300 Compliance Cloud</span></div><div class="workspace-name" id="workspaceName"></div><div class="spacer"></div><div class="db-badge">Shared browser data</div><div class="user"><b id="userName"></b><span id="userRole"></span></div><button id="logoutBtn" class="logout">Sign out</button></header>
   <iframe id="appFrame" class="frame" title="B300 workspace" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals" referrerpolicy="same-origin"></iframe>
 </section>
 <script>
 (()=>{
  const SESSION_KEY='b300_auth_session';
- const ACCOUNTS={operator:{password:'Operator2026!',name:'Operations User',role:'Operator',workspace:'v1',src:'./legacy.html'},inventory:{password:'Inventory2026!',name:'Inventory Specialist',role:'Inventory Specialist',workspace:'v2',src:'./batch-manager-v2.html'}};
+ const ACCOUNTS={
+   operator:{password:'Operator2026!',name:'Compliance Specialist',role:'Compliance Specialist',workspace:'v1',src:'./legacy.html'},
+   inventory:{password:'Inventory2026!',name:'Inventory Specialist',role:'Inventory Specialist',workspace:'v2',src:'./batch-manager-v2.html'}
+ };
  const loginView=document.getElementById('loginView'),workspaceView=document.getElementById('workspaceView'),frame=document.getElementById('appFrame');
  const readSession=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch(_){return null}};
  const validSession=s=>s&&ACCOUNTS[s.username]&&ACCOUNTS[s.username].workspace===s.workspace;
  function showLogin(){frame.src='about:blank';workspaceView.classList.add('hidden');loginView.classList.remove('hidden');}
- function openWorkspace(session){const account=ACCOUNTS[session.username];if(!account)return showLogin();loginView.classList.add('hidden');workspaceView.classList.remove('hidden');document.getElementById('workspaceName').textContent=account.workspace==='v2'?'Batch Manager v2':'Legacy V1';document.getElementById('userName').textContent=account.name;document.getElementById('userRole').textContent=account.role;frame.src=account.src;history.replaceState(null,'',location.pathname);}
+ function openWorkspace(session){const account=ACCOUNTS[session.username];if(!account)return showLogin();loginView.classList.add('hidden');workspaceView.classList.remove('hidden');document.getElementById('workspaceName').textContent=account.workspace==='v2'?'Inventory Workspace':'Compliance Workspace';document.getElementById('userName').textContent=account.name;document.getElementById('userRole').textContent=account.role;frame.src=account.src;history.replaceState(null,'',location.pathname);}
  document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),username=String(fd.get('username')||'').trim().toLowerCase(),password=String(fd.get('password')||''),account=ACCOUNTS[username];if(!account||account.password!==password){document.getElementById('loginError').classList.add('show');return}const session={username,workspace:account.workspace,role:account.role,signedInAt:new Date().toISOString()};sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));document.getElementById('loginError').classList.remove('show');openWorkspace(session)};
  document.getElementById('logoutBtn').onclick=()=>{sessionStorage.removeItem(SESSION_KEY);showLogin()};
  const session=readSession();if(validSession(session))openWorkspace(session);else showLogin();
 })();
 </script>
-</body></html>
+</body>
+</html>
