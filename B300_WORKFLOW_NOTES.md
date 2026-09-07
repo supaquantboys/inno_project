@@ -4,11 +4,11 @@ Updated: 2026-09-07
 
 ## Product model
 
-The demo now treats **Inventory Workspace** and **Compliance Workspace** as two role-specific views over the same browser-local operational record.
+The demo treats **Inventory Workspace** and **Compliance Workspace** as two role-specific views over the same browser-local operational record.
 
 - Inventory Workspace: batch/action workflow for inventory staff.
 - Compliance Workspace: transaction review, adjustments, B300 reporting and compliance controls.
-- Shared demo stores: `b300_transactions`, `b300_shared_batch_metadata`, `b300_settings_locations`.
+- Shared demo stores: `b300_transactions`, `b300_shared_batch_metadata`, `b300_settings_locations` plus browser-local excise-stamp balance metadata.
 - This is intentionally a same-browser prototype, not a multi-device backend.
 
 ## Core B300 workflow mapping
@@ -16,6 +16,7 @@ The demo now treats **Inventory Workspace** and **Compliance Workspace** as two 
 | Operational action | Inventory impact / B300 mapping |
 | --- | --- |
 | Receive unpackaged inventory | Part B addition: Quantity Received in Canada or Quantity Imported into Canada |
+| Receive packaged unstamped inventory in Canada | Part C addition: Quantity purchased in Canada - unstamped |
 | Plant viable seeds | Seed reduction: Quantity Taken for Further Processing or Planted; resulting VCP addition: Total Production |
 | VCP to WCP | VCP reduction: Quantity Transferred to Whole Cannabis Plant; WCP addition: Quantity Transferred from Vegetative Cannabis Plant; quantities are 1:1 |
 | Harvest WCP | WCP reduction in units: Plant Harvested; FM/NFM addition in kg: Total Production |
@@ -24,12 +25,14 @@ The demo now treats **Inventory Workspace** and **Compliance Workspace** as two 
 | Record lab result | Operational metadata / audit event; no B300 quantity movement |
 | Process PI to finished cannabis | PI reduction: Quantity Taken for Further Processing or Planted; finished product addition: Total Production |
 | Package final consumer product | Part B reduction: Quantity Packaged plus Part C addition: Quantity packaged for the same material quantity |
+| Receive excise stamps | Part D: Stamps Received, by jurisdiction |
+| Mark excise stamps unusable | Part D: Unusable stamps, by jurisdiction |
 | Apply cannabis excise stamps | Part D: Stamps used for products, by jurisdiction |
 | Deliver stamped packaged product | Part C reduction: Quantity stamped and delivered to a purchaser in Canada |
 | Sell packaged product unstamped | Part C reduction: Quantity sold in Canada - unstamped |
 | Destroy packaged product | Part C reduction: Quantity destroyed |
 | Move batch | Audit/operational movement only; no B300 quantity change |
-| Manual inventory adjustment | Compliance-only exceptional path; should be used for corrections/reconciliation, not routine inventory work |
+| Manual inventory adjustment | Compliance-only exceptional path; use for corrections/reconciliation, not routine inventory work |
 | Other | Exceptional compliance path; avoid for normal operational workflows |
 
 ## Business events
@@ -51,15 +54,15 @@ System-generated event transactions also carry `sourceWorkspace`, `systemGenerat
 - `unpackaged`: normal Part B operational inventory.
 - `packaged`: final consumer packaged inventory represented in Part C.
 
-Packaged batches additionally track `stampStatus`, `jurisdiction`, and `packageCount`. Operational cultivation/processing actions are not offered on packaged batches.
+Packaged batches additionally track `stampStatus`, `jurisdiction`, and `packageCount`. Cultivation/processing actions are not offered on packaged batches. For the demo, a packaged batch is stamped as one batch so it is not left in a mixed stamped/unstamped state.
 
 ## Lab behaviour
 
 Sending material for analysis reduces only the sample quantity. The source batch can keep an `In analysis` lab status while its remaining quantity stays operationally available. Recording the COA/THC result updates shared batch metadata but does not add material back to inventory.
 
-## Role boundary
+## Compliance safeguards
 
-Inventory Workspace deliberately omits routine manual adjustment and `Other` actions. Those are compliance/reconciliation paths and remain in Compliance Workspace. Part E sales/duty reporting also remains a Compliance Workspace responsibility in this demo.
+Inventory Workspace deliberately omits routine manual adjustment and `Other` actions. Compliance Workspace keeps those paths and shows a warning when `Other` or an adjustment/correction category is selected. Part E sales/duty reporting remains a Compliance Workspace responsibility in this demo.
 
 ## Demo limitations
 
@@ -67,7 +70,7 @@ Inventory Workspace deliberately omits routine manual adjustment and `Other` act
 - Login credentials are client-side demo credentials.
 - No backend transaction locking or cross-device concurrency exists yet.
 - `correctionPolicy` is descriptive metadata in the demo; Compliance Workspace does not yet technically block direct edits of one system-generated transaction.
-- Part C `Quantity purchased in Canada - unstamped`, Part D stamp receipts/unusable stamps/adjustments, and Part E sales/duty can already be represented by the Compliance reporting model but are not all exposed as Inventory Workspace operational actions.
+- Part D opening stamp inventory and stamp adjustments, and Part E sales/duty, remain Compliance Workspace reporting/control responsibilities.
 
 ## Current CRA references
 
