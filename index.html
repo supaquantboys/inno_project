@@ -26,7 +26,7 @@
   <header class="topbar"><div class="brand"><span class="brand-mark">B3</span><span>B300 Compliance Cloud</span></div><div class="workspace-name" id="workspaceName"></div><div class="spacer"></div><div class="db-badge">Shared browser data</div>
     <div id="licenseProfile" class="license-profile">
       <button class="license-profile-button" type="button" onclick="MarryLicense.toggleProfile()" aria-label="Open user profile"><span class="license-profile-avatar" id="profileAvatar">U</span><span class="profile-copy"><b id="userName" style="display:block;font-size:12px"></b><span id="userRole" style="font-size:11px;color:#64748b"></span></span><span>▾</span></button>
-      <div class="license-profile-menu"><button class="license-menu-item" type="button" onclick="MarryLicense.open()">🔑 License</button><button id="logoutBtn" class="license-menu-item" type="button">Sign out</button><div class="license-menu-note">License state is device/browser-specific in this demo.</div></div>
+      <div class="license-profile-menu"><button class="license-menu-item" type="button" onclick="MarryLicense.open()">🔑 License</button><button id="logoutBtn" class="license-menu-item" type="button">Sign out</button><div class="license-menu-note">License state is device/browser-specific in this demo. Sign out is always available.</div></div>
     </div>
   </header>
   <iframe id="appFrame" class="frame" title="B300 workspace" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals" referrerpolicy="same-origin"></iframe>
@@ -36,11 +36,12 @@
   <div class="license-dialog">
     <div class="license-dialog-head"><div><div class="license-eyebrow">MarryWanna Offline Activation</div><h2 id="licenseModalTitle">License</h2></div><button class="license-close" onclick="MarryLicense.close()" aria-label="Close">×</button></div>
     <div class="license-dialog-body">
-      <div id="licenseStatus" class="license-status"><div id="licenseStatusIcon" class="license-status-icon">🔒</div><div><strong id="licenseStatusTitle">License required</strong><p id="licenseStatusMessage"></p></div></div>
-      <div class="license-machine"><div class="license-label">Machine ID</div><div id="licenseMachineId" class="license-machine-id">Generating…</div><div class="license-actions"><button class="license-btn" onclick="MarryLicense.copyMachine()">Copy Machine ID</button><button class="license-btn" onclick="MarryLicense.exportRequest()">Export machine-request.json</button><a class="license-btn primary" href="license-portal.html" target="_blank" rel="noopener">Open License Portal</a></div></div>
-      <div class="license-portal-note"><b>Offline workflow:</b> export the Machine Request, issue a signed <code>.lic</code> in the License Portal with the required feature entitlements, then import it below.</div>
-      <div class="license-actions"><label class="license-btn primary license-upload">Import .lic<input id="licenseFileInput" type="file" accept=".lic,application/json" onchange="MarryLicense.importFile(event)"></label><button id="removeLicenseButton" class="license-btn danger license-hidden" onclick="MarryLicense.remove()">Remove installed license</button></div>
+      <div id="licenseStatus" class="license-status"><div id="licenseStatusIcon" class="license-status-icon">🔒</div><div><strong id="licenseStatusTitle">License required</strong><p id="licenseStatusMessage"></p><p id="licenseStatusCode" class="license-status-code"></p></div></div>
+      <div class="license-machine"><div class="license-machine-copy"><div class="license-label">Machine ID</div><div id="licenseMachineId" class="license-machine-id">Generating…</div><div class="license-machine-help">Send this ID to your license administrator. It does not expose raw hardware identifiers.</div></div><div class="license-machine-actions"><button class="license-btn" onclick="MarryLicense.copyMachine()">⧉ Copy</button><button class="license-btn" onclick="MarryLicense.exportRequest()">⇩ Export Request</button></div></div>
+      <label id="licenseDropzone" class="license-import license-upload"><input id="licenseFileInput" type="file" accept=".lic,application/json" onchange="MarryLicense.importFile(event)"><span><span class="license-import-icon">⇧</span><b>Import .lic file</b><span>The signature, Machine ID, product and validity dates are checked before activation.</span></span></label>
+      <button id="removeLicenseButton" class="license-btn danger license-remove-wide license-hidden" onclick="MarryLicense.remove()">🗑 Remove License</button>
       <div id="licenseDetails" class="license-details license-hidden"><div class="license-details-grid"><div class="k">Customer</div><div class="v" id="licenseCustomer">—</div><div class="k">License ID</div><div class="v" id="licenseId">—</div><div class="k">Edition</div><div class="v" id="licenseEdition">—</div><div class="k">Valid from</div><div class="v" id="licenseValidFrom">—</div><div class="k">Valid until</div><div class="v" id="licenseValidUntil">—</div><div class="k">Features</div><div class="v"><div id="licenseFeatures" class="license-features"></div></div></div></div>
+      <div class="license-dialog-footer"><span>Format: <b>offline-license-v1 · Ed25519</b></span><a href="license-portal.html#licenses" target="_blank" rel="noopener">Open License Portal ↗</a></div>
     </div>
   </div>
 </div>
@@ -48,17 +49,14 @@
 <script>
 (()=>{
  const SESSION_KEY='b300_auth_session';
- const ACCOUNTS={
-   operator:{password:'Operator2026!',name:'Compliance Specialist',role:'Compliance Specialist',workspace:'v1',src:'./legacy.html'},
-   inventory:{password:'Inventory2026!',name:'Inventory Specialist',role:'Inventory Specialist',workspace:'v2',src:'./batch-manager-v2.html'}
- };
+ const ACCOUNTS={operator:{password:'Operator2026!',name:'Compliance Specialist',role:'Compliance Specialist',workspace:'v1',src:'./legacy.html'},inventory:{password:'Inventory2026!',name:'Inventory Specialist',role:'Inventory Specialist',workspace:'v2',src:'./batch-manager-v2.html'}};
  const loginView=document.getElementById('loginView'),workspaceView=document.getElementById('workspaceView'),frame=document.getElementById('appFrame');
  const readSession=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch(_){return null}};
  const validSession=s=>s&&ACCOUNTS[s.username]&&ACCOUNTS[s.username].workspace===s.workspace;
- function showLogin(){frame.src='about:blank';workspaceView.classList.add('hidden');loginView.classList.remove('hidden');MarryLicense.entitlementCheck();}
- function openWorkspace(session){const account=ACCOUNTS[session.username];if(!account)return showLogin();loginView.classList.add('hidden');workspaceView.classList.remove('hidden');document.getElementById('workspaceName').textContent=account.workspace==='v2'?'Inventory Workspace':'Compliance Workspace';document.getElementById('userName').textContent=account.name;document.getElementById('userRole').textContent=account.role;document.getElementById('profileAvatar').textContent=account.name.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();frame.src=account.src;history.replaceState(null,'',location.pathname);MarryLicense.entitlementCheck();}
+ function showLogin(){frame.src='about:blank';workspaceView.classList.add('hidden');loginView.classList.remove('hidden');MarryLicense.entitlementCheck()}
+ function openWorkspace(session){const account=ACCOUNTS[session.username];if(!account)return showLogin();loginView.classList.add('hidden');workspaceView.classList.remove('hidden');document.getElementById('workspaceName').textContent=account.workspace==='v2'?'Inventory Workspace':'Compliance Workspace';document.getElementById('userName').textContent=account.name;document.getElementById('userRole').textContent=account.role;document.getElementById('profileAvatar').textContent=account.name.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase();frame.src=account.src;history.replaceState(null,'',location.pathname);MarryLicense.entitlementCheck()}
  document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const fd=new FormData(e.currentTarget),username=String(fd.get('username')||'').trim().toLowerCase(),password=String(fd.get('password')||''),account=ACCOUNTS[username];if(!account||account.password!==password){document.getElementById('loginError').classList.add('show');return}const session={username,workspace:account.workspace,role:account.role,signedInAt:new Date().toISOString()};sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));document.getElementById('loginError').classList.remove('show');openWorkspace(session)};
- document.getElementById('logoutBtn').onclick=()=>{sessionStorage.removeItem(SESSION_KEY);MarryLicense.toggleProfile();showLogin()};
+ document.getElementById('logoutBtn').onclick=()=>{sessionStorage.removeItem(SESSION_KEY);document.getElementById('licenseProfile').classList.remove('open');MarryLicense.close();showLogin()};
  window.addEventListener('marrywanna-license-changed',()=>MarryLicense.entitlementCheck());
  const session=readSession();if(validSession(session))openWorkspace(session);else showLogin();
  MarryLicense.init();
