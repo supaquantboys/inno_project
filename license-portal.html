@@ -4,26 +4,27 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MarryWanna License Portal — Development Demo</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/compliance.css">
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     body{font-family:Inter,sans-serif}.field{width:100%;border:1px solid #dbe3ef;border-radius:.8rem;padding:.72rem .85rem;background:#fff;outline:none}.field:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
     .feature:has(input:checked){border-color:#86efac;background:#f0fdf4;color:#166534}.duration.active{background:#1d4ed8;color:white;border-color:#1d4ed8}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   </style>
+  <link rel="stylesheet" href="./assets/css/workspace.css">
+  <link rel="stylesheet" href="./assets/css/license-workspace.css">
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-800">
+<body class="license-portal min-h-screen bg-slate-50 text-slate-800">
   <div class="bg-amber-950 text-amber-50 px-4 py-3 text-sm font-medium sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto flex items-start gap-3"><i class="fa-solid fa-triangle-exclamation mt-0.5 text-amber-300"></i><p><b>Development Demo:</b> this static page contains a public test signer for UX validation. It is not a production license authority. Production signing must run behind company SSO/RBAC with the private key in KMS/HSM.</p></div>
+    <div class="max-w-7xl mx-auto flex items-start gap-3"><p><b>Development Demo:</b> this static page contains a public test signer for UX validation. It is not a production license authority. Production signing must run behind company SSO/RBAC with the private key in KMS/HSM.</p></div>
   </div>
   <header class="bg-slate-950 text-white border-b border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-      <div class="flex items-center gap-3"><span class="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-xl"><i class="fa-solid fa-key"></i></span><div><p class="text-xs uppercase tracking-[.22em] text-slate-400">MarryWanna Operations</p><h1 class="text-xl font-bold">License Portal</h1></div></div>
-      <div class="flex items-center gap-2"><span class="px-3 py-2 rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20 text-xs font-bold">DEVELOPMENT DEMO</span><a href="index.html" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm"><i class="fa-solid fa-arrow-left mr-2"></i>B300 Compliance Cloud</a></div>
+      <div class="flex items-center gap-3"><span class="w-11 h-11 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center text-xl"><span class="portal-monogram">MW</span></span><div><p class="text-xs uppercase tracking-[.22em] text-slate-400">MarryWanna Operations</p><h1 class="text-xl font-bold">License Portal</h1></div></div>
+      <div class="flex items-center gap-2"><span class="px-3 py-2 rounded-xl bg-amber-400/10 text-amber-300 border border-amber-400/20 text-xs font-bold">DEVELOPMENT DEMO</span><a href="index.html" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm"><span aria-hidden="true" class="portal-icon">←</span>B300 Compliance Cloud</a></div>
     </div>
     <nav class="max-w-7xl mx-auto px-4 sm:px-6 pb-4 flex gap-2 overflow-x-auto" aria-label="Portal sections">
-      <button id="portal-tab-licenses" type="button" onclick="portal.showView('licenses')" class="portal-tab whitespace-nowrap px-4 py-2.5 rounded-xl bg-white text-slate-950 font-bold text-sm" aria-current="page"><i class="fa-solid fa-file-signature mr-2"></i>Issue Licenses</button>
-      <button id="portal-tab-customers" type="button" onclick="portal.showView('customers')" class="portal-tab whitespace-nowrap px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-sm"><i class="fa-solid fa-address-book mr-2"></i>Customers</button>
+      <button id="portal-tab-licenses" type="button" onclick="portal.showView('licenses')" class="portal-tab whitespace-nowrap px-4 py-2.5 rounded-xl bg-white text-slate-950 font-bold text-sm" aria-current="page">Issue Licenses</button>
+      <button id="portal-tab-customers" type="button" onclick="portal.showView('customers')" class="portal-tab whitespace-nowrap px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-sm">Customers</button>
     </nav>
   </header>
 
@@ -45,7 +46,7 @@
           <div class="p-5 sm:p-6 border-b border-slate-100"><p class="text-xs uppercase tracking-[.18em] font-bold text-blue-600">New license</p><h2 class="text-xl font-bold mt-1">Issue signed .lic</h2><p class="text-sm text-slate-500 mt-1">Paste a Machine ID or import the request exported by MarryWanna.</p></div>
           <div class="p-5 sm:p-6 space-y-6">
             <div class="rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 p-4">
-              <div class="flex flex-col sm:flex-row sm:items-center gap-3"><label class="inline-flex items-center justify-center px-4 py-3 rounded-xl bg-white border border-blue-200 text-blue-700 font-semibold cursor-pointer hover:bg-blue-50"><input id="request-file" type="file" accept=".json,application/json" class="sr-only"><i class="fa-solid fa-file-import mr-2"></i>Upload machine-request.json</label><span id="request-status" class="text-sm text-slate-500">No request file loaded.</span></div>
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3"><label class="inline-flex items-center justify-center px-4 py-3 rounded-xl bg-white border border-blue-200 text-blue-700 font-semibold cursor-pointer hover:bg-blue-50"><input id="request-file" type="file" accept=".json,application/json" class="sr-only"><span aria-hidden="true" class="portal-icon">↗</span>Upload machine-request.json</label><span id="request-status" class="text-sm text-slate-500">No request file loaded.</span></div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="md:col-span-2"><span class="text-sm font-semibold block mb-2">Customer name *</span><input id="customer-name" class="field" required maxlength="100" list="customer-options" autocomplete="off" placeholder="ABC Company"><datalist id="customer-options"></datalist><small id="customer-code-status" class="text-xs text-slate-500 mt-2 block">Select an existing customer or enter a new name. A permanent number is assigned once and reused.</small></label>
@@ -75,7 +76,7 @@
             </div></div>
             <label class="block"><span class="text-sm font-semibold block mb-2">Customer-visible note</span><input id="customer-note" class="field" maxlength="160" placeholder="Optional"></label>
           </div>
-          <div class="p-5 sm:p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><p class="text-xs text-slate-500"><i class="fa-solid fa-shield-halved mr-1"></i>Payload changes invalidate the Ed25519 signature.</p><button type="submit" class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"><i class="fa-solid fa-arrow-right mr-2"></i>Review license</button></div>
+          <div class="p-5 sm:p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><p class="text-xs text-slate-500">Payload changes invalidate the Ed25519 signature.</p><button type="submit" class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Review license</button></div>
         </form>
 
         <aside class="space-y-4 xl:sticky xl:top-20">
@@ -93,13 +94,13 @@
     <div id="portal-view-customers" class="hidden space-y-6">
       <section><p class="text-sm font-semibold text-blue-600">Customer registry</p><h2 class="text-2xl font-bold mt-1">Customers</h2><p class="text-sm text-slate-500 mt-2">Each customer keeps one permanent eight-digit number reused in Customer IDs and purchase orders.</p></section>
       <section class="grid grid-cols-1 xl:grid-cols-[22rem_minmax(0,1fr)] gap-6 items-start">
-        <form id="customer-form" class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 xl:sticky xl:top-20"><h3 class="font-bold text-lg">Register customer</h3><label class="block mt-4"><span class="text-sm font-semibold block mb-2">Customer name *</span><input id="registry-customer-name" class="field" required maxlength="100" placeholder="ABC Company"></label><button class="w-full mt-4 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold" type="submit"><i class="fa-solid fa-user-plus mr-2"></i>Register customer</button></form>
+        <form id="customer-form" class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 xl:sticky xl:top-20"><h3 class="font-bold text-lg">Register customer</h3><label class="block mt-4"><span class="text-sm font-semibold block mb-2">Customer name *</span><input id="registry-customer-name" class="field" required maxlength="100" placeholder="ABC Company"></label><button class="w-full mt-4 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold" type="submit">Register customer</button></form>
         <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden"><div class="p-5 border-b border-slate-100"><input id="customer-query" class="field" placeholder="Search customer ID or name"></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-slate-50 text-slate-500 text-xs"><tr><th class="text-left px-5 py-3">Customer ID</th><th class="text-left px-5 py-3">Customer</th><th class="text-left px-5 py-3">Number</th><th class="text-left px-5 py-3">Updated</th><th class="px-5 py-3"></th></tr></thead><tbody id="customer-rows"></tbody></table></div></div>
       </section>
     </div>
   </main>
 
-  <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 items-center justify-center p-4" role="dialog" aria-modal="true"><div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden"><div class="p-5 sm:p-6 border-b border-slate-100 flex justify-between gap-4"><div><p class="text-xs uppercase tracking-[.18em] text-blue-600 font-bold">Final review</p><h2 class="text-xl font-bold mt-1">Confirm license</h2></div><button onclick="portal.closeConfirm()" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500"><i class="fa-solid fa-xmark"></i></button></div><dl id="confirm-details" class="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"></dl><div class="p-5 sm:p-6 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-2"><button onclick="portal.closeConfirm()" class="px-4 py-3 rounded-xl border border-slate-200 font-bold">Cancel</button><button onclick="portal.issue()" class="px-5 py-3 rounded-xl bg-blue-600 text-white font-bold"><i class="fa-solid fa-file-signature mr-2"></i>Issue signed .lic</button></div></div></div>
+  <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 items-center justify-center p-4" role="dialog" aria-modal="true"><div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden"><div class="p-5 sm:p-6 border-b border-slate-100 flex justify-between gap-4"><div><p class="text-xs uppercase tracking-[.18em] text-blue-600 font-bold">Final review</p><h2 class="text-xl font-bold mt-1">Confirm license</h2></div><button aria-label="Close license review" onclick="portal.closeConfirm()" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-500"><span aria-hidden="true" class="portal-icon">×</span></button></div><dl id="confirm-details" class="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm"></dl><div class="p-5 sm:p-6 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-2"><button onclick="portal.closeConfirm()" class="px-4 py-3 rounded-xl border border-slate-200 font-bold">Cancel</button><button onclick="portal.issue()" class="px-5 py-3 rounded-xl bg-blue-600 text-white font-bold">Issue signed .lic</button></div></div></div>
   <div id="toast" class="hidden fixed right-4 bottom-4 z-[60] rounded-xl bg-slate-950 text-white px-4 py-3 text-sm font-bold shadow-xl"></div>
   <script src="./license-portal.js"></script>
 </body>

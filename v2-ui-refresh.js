@@ -1,1 +1,0 @@
-(()=>{const prevExecute=executeAction;executeAction=function(action,fd){const out=prevExecute(action,fd);if(action==='stamp')render();return out};})();
