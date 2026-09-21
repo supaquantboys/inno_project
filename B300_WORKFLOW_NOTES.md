@@ -1,6 +1,6 @@
 # B300 workflow notes (demo)
 
-Updated: 2026-09-07
+Updated: 2026-09-21
 
 ## Product model
 
@@ -69,7 +69,7 @@ Inventory Workspace deliberately omits routine manual adjustment and `Other` act
 - Data sharing is browser-local only.
 - Login credentials are client-side demo credentials.
 - No backend transaction locking or cross-device concurrency exists yet.
-- `correctionPolicy` is descriptive metadata in the demo; Compliance Workspace does not yet technically block direct edits of one system-generated transaction.
+- Compliance Workspace blocks individual edits of system-generated records. Event-level reversal is not yet implemented.
 - Part D opening stamp inventory and stamp adjustments, and Part E sales/duty, remain Compliance Workspace reporting/control responsibilities.
 
 ## Current CRA references
@@ -77,3 +77,12 @@ Inventory Workspace deliberately omits routine manual adjustment and `Other` act
 - Form B300: https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/b300.html
 - Completing a cannabis duty and information return: https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/excise-duties-levies/cannabis-duty/cannabis-duty-information-return.html
 - Cannabis records to keep: https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/excise-duties-levies/cannabis-duty/report-cannabis/what-records-keep.html
+
+## September 21 workflow refresh
+
+- Same-product mixing now uses internal transfer records with signed `inventoryDelta` values. This preserves batch quantities without adding Part B production or processing reductions. Historical mix records are not rewritten.
+- Packaged delivery and destruction validate remaining material and package counts together. Packaged destruction records a package count; routine Inventory no longer offers Part C Other.
+- Fully sampled batches remain eligible for recording lab results.
+- A common action boundary rolls back failed actions and rejects a form if shared storage changed since it opened. This is not a cross-tab lock or crash-safe database transaction.
+- Compliance now blocks independent edits to generated records. Event-level reversal is still not implemented, so corrections to these events require future development.
+- The refreshed UI and research findings are described in `docs/B300_RESEARCH_AND_UX.md`.
