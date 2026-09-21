@@ -78,10 +78,7 @@
         "A clear view of your inventory, next actions, and compliance trail.",
         receiveButton,
       ) +
-      `<div class="workflow-banner"><div><div class="eyebrow">From batch to return</div><h3>Every action tells the next part of the story.</h3><p>Work with your batches. Review the resulting records in Compliance.</p><div class="flow-steps"><span>Receive</span>→<span>Grow & process</span>→<span>Package & stamp</span>→<span>Deliver</span></div></div><button class="btn" data-tab="guide">Explore workflow ↗</button></div>` +
-      `<div class="grid cards4">${metric("Active batches", batches.length, "Across all product types", "products")}${metric("Awaiting lab results", lab.length, "Samples sent for analysis", "guide")}${metric("Ready for stamping", unstamped.length, "Packaged, unstamped batches", "settings")}${metric("Recorded events", events.size, "Linked actions, one shared record", "ledger")}</div>` +
-      `<div class="section"><div class="section-title"><h3>Current inventory <span class="count">· ${batches.length} batches</span></h3><button class="btn" data-tab="products">View all inventory →</button></div>${batchTable(batches.slice(0, 6))}</div>` +
-      `<div class="split-grid section"><div><div class="section-title"><h3>Recent activity</h3><button class="btn" data-tab="ledger">View activity</button></div>${eventCards(state.transactions.slice(0, 12), 4)}</div><div><div class="section-title"><h3>Needs attention</h3></div><div class="card">${
+      `<section class="attention-section" aria-labelledby="attention-title"><div class="section-title"><div><h3 id="attention-title">Needs attention <span class="count">· ${lab.length + unstamped.length} pending</span></h3><p class="muted tiny">Next steps for your batches</p></div></div><div class="card attention-card ${lab.length + unstamped.length ? "has-pending" : ""}">${
         [
           ...lab.map((b) => ({
             b,
@@ -94,14 +91,17 @@
             action: "stamp",
           })),
         ]
-          .slice(0, 4)
           .map(
             ({ b, label, action }) =>
               `<div class="attention-row"><div><b>${esc(b.id)}</b><p>${esc(label)}</p></div><button class="action" data-action="${action}" data-product="${b.product}" data-batch="${esc(b.id)}">Continue →</button></div>`,
           )
           .join("") ||
-        '<p class="muted">You’re all caught up.</p><p class="tiny muted">Batches needing lab results or stamps will appear here.</p>'
-      }</div></div></div>`
+        '<div class="attention-clear"><b>You’re all caught up.</b><p class="muted tiny">Batches needing lab results or stamps will appear here.</p></div>'
+      }</div></section>` +
+      `<div class="grid cards4">${metric("Active batches", batches.length, "Across all product types", "products")}${metric("Awaiting lab results", lab.length, "Samples sent for analysis", "guide")}${metric("Ready for stamping", unstamped.length, "Packaged, unstamped batches", "settings")}${metric("Recorded events", events.size, "Linked actions, one shared record", "ledger")}</div>` +
+      `<div class="section"><div class="section-title"><h3>Current inventory <span class="count">· ${batches.length} batches</span></h3><button class="btn" data-tab="products">View all inventory →</button></div>${batchTable(batches.slice(0, 6))}</div>` +
+      `<div class="section"><div class="section-title"><h3>Recent activity</h3><button class="btn" data-tab="ledger">View activity</button></div>${eventCards(state.transactions.slice(0, 12), 4)}</div>` +
+      `<div class="workflow-help section"><div><b>From batch to B300 return</b><p class="muted tiny">See how inventory actions create compliance records.</p></div><button class="btn" data-tab="guide">Explore workflow ↗</button></div>`
     );
   };
   function eventCards(rows, limit = Infinity) {

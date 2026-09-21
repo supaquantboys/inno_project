@@ -62,6 +62,8 @@
         const setRole = (role) => {
           const select = roleSelect();
           if (!select || !["Admin", "Operator"].includes(role)) return null;
+          // This hidden selector is driven by the always-available profile menu.
+          select.dataset.licenseNavigation = "true";
           select.value = role;
           select.dispatchEvent(
             new childDoc.defaultView.Event("change", { bubbles: true }),
@@ -150,29 +152,6 @@
                 nav.style.marginTop = "0";
               }
             }
-            function featureVisibility() {
-              const set = features(),
-                rules = [
-                  { feature: "b300_reports", terms: ["report"] },
-                  { feature: "audit_log", terms: ["audit"] },
-                  {
-                    feature: "administration",
-                    terms: ["database", "setting", "admin"],
-                  },
-                ];
-              [...d.querySelectorAll("button,a")].forEach((el) => {
-                const text = (el.textContent || "").trim().toLowerCase(),
-                  id = (el.id || "").toLowerCase();
-                for (const rule of rules) {
-                  if (
-                    rule.terms.some((t) => text.includes(t) || id.includes(t))
-                  ) {
-                    el.style.display = set.has(rule.feature) ? "" : "none";
-                    break;
-                  }
-                }
-              });
-            }
             function scan() {
               hideLegacyChrome();
               const value = [...d.querySelectorAll("select")]
@@ -192,7 +171,7 @@
                 const warning = "<b>Compliance warning</b><br>" + messages[value];
                 if (el.innerHTML !== warning) el.innerHTML = warning;
               }
-              featureVisibility();
+              // Page navigation stays available; workspace-chrome guards actions.
             }
             scanNow = scan;
             d.addEventListener("change", scan, true);

@@ -346,6 +346,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 
         const applyTheme = (themeKey) => {
             const theme = THEME_PRESETS[themeKey] || THEME_PRESETS.evergreen;
+            Object.entries({'--brand': theme.primary, '--brand-dark': theme.hover, '--brand-soft': theme.soft}).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
             document.documentElement.style.setProperty('--theme-primary', theme.primary);
             document.documentElement.style.setProperty('--theme-primary-hover', theme.hover);
             document.documentElement.style.setProperty('--theme-secondary', theme.secondary);
@@ -1128,8 +1129,8 @@ const { useState, useEffect, useMemo, useRef } = React;
             "Reductions (C)": "Réductions (C)",
             "Adjustments (D)": "Ajustements (D)",
             "Closing": "Clôture",
-            "CSV Database Engine (Local)": "Moteur de base de données CSV (local)",
-            "This MVP utilizes your browser's LocalStorage to persist data securely. Use the tools below to export backups or analyze data externally.": "Ce MVP utilise le stockage local de votre navigateur pour conserver les données. Utilisez les outils ci-dessous pour exporter des sauvegardes ou analyser les données à l’extérieur.",
+            "Local transaction records": "Moteur de base de données CSV (local)",
+            "Records are saved in this browser. Export a copy for backup or analysis before clearing data.": "Ce MVP utilise le stockage local de votre navigateur pour conserver les données. Utilisez les outils ci-dessous pour exporter des sauvegardes ou analyser les données à l’extérieur.",
             "Export Complete Database (CSV)": "Exporter la base de données complète (CSV)",
             "Download a flat CSV file containing all fields and historical records.": "Téléchargez un fichier CSV plat contenant tous les champs et les enregistrements historiques.",
             "Download CSV": "Télécharger le CSV",
@@ -1448,37 +1449,61 @@ const { useState, useEffect, useMemo, useRef } = React;
 
         const getActiveLocale = () => loadSettings(SETTINGS_KEYS.LANGUAGE, DEFAULT_SETTINGS.language);
 
-        const CustomDialog = ({ isOpen, title, message, type = 'alert', onConfirm, onCancel }) => {
-            if (!isOpen) return null;
-            const isConfirm = type === 'confirm';
-            return (
-                <div className="fixed inset-0 bg-slate-950/55 backdrop-blur-[1px] flex items-center justify-center z-[100] p-4 sm:p-6" role="presentation">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
-                        <div className="theme-soft-bg theme-soft-border border-b px-5 py-4 sm:px-6 sm:py-5 flex items-start gap-3">
-                            <div className="theme-primary-bg text-white w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-sm">
-                                <Icons.AlertCircle />
-                            </div>
-                            <div className="min-w-0 pt-0.5">
-                                <h3 id="app-dialog-title" className="text-lg font-bold text-gray-900 leading-6">{title}</h3>
-                                <p className="text-xs text-gray-500 mt-1">B300 Compliance Cloud</p>
-                            </div>
-                        </div>
-                        <div className="px-5 py-5 sm:px-6 sm:py-6 text-gray-700 text-base leading-7 break-words whitespace-pre-line">
-                            {message}
-                        </div>
-                        <div className="px-5 py-4 sm:px-6 bg-gray-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 border-t border-gray-200">
-                            {isConfirm && (
-                                <button onClick={onCancel} className="w-full sm:w-auto min-w-[104px] px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold">
-                                    Cancel
-                                </button>
-                            )}
-                            <button onClick={onConfirm} className="w-full sm:w-auto min-w-[104px] px-5 py-2.5 rounded-lg text-white text-sm font-semibold transition-colors shadow-sm theme-primary-bg">
-                                {isConfirm ? 'Confirm' : 'OK'}
-                            </button>
-                        </div>
-                    </div>
+        // Shared pagination keeps exports and calculations independent from the visible page.
+        const PaginatedTable = ({ children, ...props }) => {
+            const sections = React.Children.toArray(children);
+            const body = sections.find(child => child.type === 'tbody');
+            const rows = React.Children.toArray(body?.props.children);
+            const empty = rows.length === 1 && rows[0].props.children?.type === 'td' && rows[0].props.children.props.colSpan;
+            const count = empty ? 0 : rows.length;
+            const [page, setPage] = useState(1);
+            const [size, setSize] = useState(10);
+            const signature = rows.map(row => row.key).join('|');
+            useEffect(() => setPage(1), [signature, size]);
+            const pages = Math.max(1, Math.ceil(rows.length / size));
+            const current = Math.min(page, pages);
+            const start = (current - 1) * size;
+            const viewport = useRef(null);
+            useEffect(() => { if (viewport.current) viewport.current.scrollTop = 0; }, [current, size]);
+            return <div className="data-table-panel">
+                <div className="data-table-scroll" ref={viewport} tabIndex="0" role="region" aria-label="Scrollable table">
+                    <table {...props}>{sections.map(section => section.type === 'tbody' ? React.cloneElement(section, {}, rows.slice(start, start + size)) : section)}</table>
                 </div>
-            );
+                <nav className="table-pagination" aria-label="Table pagination">
+                    <label>Rows per page <select aria-label="Rows per page" value={size} onChange={e => setSize(Number(e.target.value))}>{[10,25,50].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
+                    <span aria-live="polite">{count ? start + 1 : 0}–{Math.min(start + size, count)} of {count}</span>
+                    <div><button disabled={current === 1} onClick={() => setPage(current - 1)} aria-label="Previous page">←</button><span>Page {current} of {pages}</span><button disabled={current === pages} onClick={() => setPage(current + 1)} aria-label="Next page">→</button></div>
+                </nav>
+            </div>;
+        };
+
+        const CustomDialog = ({ isOpen, title, message, type = 'alert', onConfirm, onCancel }) => {
+            const panel = useRef(null);
+            const isConfirm = type === 'confirm';
+            useEffect(() => {
+                if (!isOpen) return;
+                const previous = document.activeElement;
+                panel.current?.querySelector('button')?.focus();
+                const keydown = event => {
+                    if (event.key === 'Escape') { event.preventDefault(); (isConfirm ? onCancel : onConfirm)(); }
+                    if (event.key === 'Tab') {
+                        const buttons = [...panel.current.querySelectorAll('button')];
+                        const index = buttons.indexOf(document.activeElement);
+                        event.preventDefault();
+                        buttons[(index + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus();
+                    }
+                };
+                document.addEventListener('keydown', keydown);
+                return () => { document.removeEventListener('keydown', keydown); previous?.focus(); };
+            }, [isOpen]);
+            if (!isOpen) return null;
+            return <div className="feedback-backdrop">
+                <div ref={panel} className="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title" aria-describedby="app-dialog-message">
+                    <div className="feedback-heading"><span className="feedback-icon" aria-hidden="true">{title === 'Success' ? '✓' : <Icons.AlertCircle />}</span><h3 id="app-dialog-title">{title}</h3></div>
+                    <div id="app-dialog-message" className="feedback-message">{message}</div>
+                    <div className="feedback-actions">{isConfirm && <button onClick={onCancel}>Cancel</button>}<button className="theme-primary-bg" onClick={onConfirm}>{isConfirm ? 'Confirm' : 'OK'}</button></div>
+                </div>
+            </div>;
         };
 
         const App = () => {
@@ -1742,29 +1767,29 @@ const { useState, useEffect, useMemo, useRef } = React;
                         </div>
                         <div className="side-brand"><span>MW</span>MarryWanna</div><div className="nav-label">Compliance</div>
                         <nav className="flex-1 px-3 md:px-4 py-3 space-y-1 md:space-y-2 grid grid-cols-2 sm:grid-cols-3 md:block gap-2">
-                            <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Search /> <span>Dashboard</span>
                             </button>
-                            <button onClick={() => setActiveTab('ledger')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'ledger' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('ledger')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'ledger' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.FileText /> <span>Inventory Ledger</span>
                             </button>
-                            <button onClick={() => setActiveTab('reports')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'reports' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('reports')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'reports' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Download /> <span>B300 Reports</span>
                             </button>
-                            <button onClick={() => setActiveTab('database')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'database' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('database')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'database' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Upload /> <span>DB Management</span>
                             </button>
-                            <button onClick={() => setActiveTab('audit')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'audit' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('audit')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'audit' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Activity /> <span>Audit Log</span>
                             </button>
-                            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
+                            <button data-license-navigation="true" onClick={() => setActiveTab('settings')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Settings /> <span>Settings</span>
                             </button>
 
                             {/* Auto Generate Button */}
                             <div className="pt-3 mt-3 md:pt-6 md:mt-6 border-t border-slate-700 col-span-full md:col-auto">
-                                <button onClick={() => setShowDataGenModal(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white transition-all shadow-md hover:shadow-lg bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 hover:from-fuchsia-500 hover:via-violet-500 hover:to-indigo-500 ring-1 ring-white/10">
-                                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/15 border border-white/20"><Icons.Sparkles /></span>
+                                <button onClick={() => setShowDataGenModal(true)} className="sample-generator-button">
+                                    <Icons.Sparkles />
                                     <span className="text-sm font-semibold tracking-tight whitespace-nowrap">AI Sample Generator</span>
                                 </button>
                             </div>
@@ -1847,7 +1872,8 @@ const { useState, useEffect, useMemo, useRef } = React;
                     {showDataGenModal && (
                         <DataGenerationModal
                             onClose={() => setShowDataGenModal(false)}
-                            onGenerate={(generatedData) => {
+                            onGenerate={(generatedData, partA) => {
+                                if (partA) Object.entries(partA).forEach(([key, value]) => { if (!String(settings[key] || "").trim()) handleUpdateSettings(key, value); });
                                 setTransactions(prev => [...generatedData, ...prev]);
                                 const hasReportSupplemental = generatedData.some(row => row.recordType === 'B300_REPORT_SUPPLEMENTAL');
                                 addAuditRecord({
@@ -1856,8 +1882,8 @@ const { useState, useEffect, useMemo, useRef } = React;
                                     details:{'Generated records':generatedData.length, 'Destination':hasReportSupplemental ? 'Inventory Ledger + B300 Reports' : 'Inventory Ledger'}
                                 });
                                 setShowDataGenModal(false);
-                                setActiveTab(hasReportSupplemental ? 'reports' : 'ledger');
-                                showDialog("Success", hasReportSupplemental ? "Sample data generated successfully. Inventory and B300 report coverage have been updated." : "Test data generated successfully. Ledger has been updated.", "alert");
+                                setActiveTab(hasReportSupplemental || partA ? 'reports' : 'ledger');
+                                showDialog("Success", partA ? "Part A sample profile added to empty business fields. Existing profile values were preserved. Review Part A in B300 Reports." : hasReportSupplemental ? "Sample data generated successfully. Inventory and B300 report coverage have been updated." : "Test data generated successfully. Ledger has been updated.", "alert");
                             }}
                         />
                     )}
@@ -1902,7 +1928,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                         <h3 className="text-lg font-semibold mb-4">Live Inventory Snapshot</h3>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <PaginatedTable className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-gray-50 text-gray-600 text-sm border-b">
                                         <th className="p-3 font-medium">Product Type</th>
@@ -1929,7 +1955,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                         )
                                     })}
                                 </tbody>
-                            </table>
+                            </PaginatedTable>
                         </div>
                     </div>
                 </div>
@@ -2071,7 +2097,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1220px] text-left text-sm whitespace-nowrap">
+                        <PaginatedTable className="w-full min-w-[1220px] text-left text-sm whitespace-nowrap">
                             <thead className="sticky top-0 bg-white shadow-sm z-10">
                                 <tr className="text-xs font-bold uppercase tracking-wide text-gray-600 border-b border-gray-200">
                                     <th className="px-5 py-4">Log ID</th>
@@ -2140,7 +2166,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                     ))
                                 )}
                             </tbody>
-                        </table>
+                        </PaginatedTable>
                     </div>
                 </div>
             );
@@ -2201,7 +2227,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                 });
                 return <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-5 py-4 border-b bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><div className="text-xs font-bold uppercase tracking-wide text-gray-500">CRA B300 E (25) · Page {pageNumber}</div><h3 className="text-lg font-bold text-gray-900 mt-1">Part B - Cannabis product inventory - Unpackaged{pageNumber===3?' (continued)':''}</h3></div><div className="text-xs text-gray-500">{periodStart} to {periodEnd}</div></div>
-                    <div className="overflow-x-auto"><table className="b300-report-table w-full border-collapse text-xs sm:text-sm min-w-[980px]"><thead><tr className="bg-white"><th className="w-[310px] px-3 py-3 text-left border border-gray-300 font-semibold text-gray-700">Inventory category</th>{products.map(pt=>{const meta=B300_PRODUCT_META[pt];return <th key={pt} className="min-w-[135px] px-3 py-3 text-center border border-gray-300 text-gray-800"><div className="text-[11px] uppercase tracking-wide text-gray-500">{meta.unit}</div><div className="font-bold leading-5 mt-1">{meta.short}</div></th>})}</tr></thead><tbody>
+                    <div className="overflow-x-auto"><PaginatedTable className="b300-report-table w-full border-collapse text-xs sm:text-sm min-w-[980px]"><thead><tr className="bg-white"><th className="w-[310px] px-3 py-3 text-left border border-gray-300 font-semibold text-gray-700">Inventory category</th>{products.map(pt=>{const meta=B300_PRODUCT_META[pt];return <th key={pt} className="min-w-[135px] px-3 py-3 text-center border border-gray-300 text-gray-800"><div className="text-[11px] uppercase tracking-wide text-gray-500">{meta.unit}</div><div className="font-bold leading-5 mt-1">{meta.short}</div></th>})}</tr></thead><tbody>
                         <tr><td className="px-3 py-2.5 border border-gray-300 font-bold text-gray-800">Opening inventory A</td>{products.map(pt=><React.Fragment key={`o-${pt}`}>{cell(pt,report.products[pt].opening)}</React.Fragment>)}</tr>
                         <tr className="section-row"><td colSpan={products.length+1} className="px-3 py-2 border border-gray-300">Additions to inventory</td></tr>
                         {B300_ADDITION_ROWS.map(row=><tr key={row.category}><td className="px-3 py-2 border border-gray-300 text-gray-700">{row.label}</td>{rowCells(row,TRANSACTION_TYPES.ADDITION)}</tr>)}
@@ -2211,12 +2237,12 @@ const { useState, useEffect, useMemo, useRef } = React;
                         <tr className="total-row"><td className="px-3 py-2.5 border border-gray-300">Total reductions C</td>{products.map(pt=><React.Fragment key={`tr-${pt}`}>{cell(pt,report.products[pt].totalReductions)}</React.Fragment>)}</tr>
                         <tr><td className="px-3 py-2.5 border border-gray-300 font-semibold">Inventory adjustments (+ or -) D</td>{products.map(pt=><React.Fragment key={`ad-${pt}`}>{cell(pt,report.products[pt].adjustments,true)}</React.Fragment>)}</tr>
                         <tr className="closing-row"><td className="px-3 py-3 border border-gray-300">Closing inventory (A + B - C +/- D)</td>{products.map(pt=><React.Fragment key={`cl-${pt}`}>{cell(pt,report.products[pt].closing)}</React.Fragment>)}</tr>
-                    </tbody></table></div></div>;
+                    </tbody></PaginatedTable></div></div>;
             };
 
             const PartCTable = () => <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 bg-gray-50 border-b flex flex-col sm:flex-row sm:justify-between gap-2"><div><div className="text-xs font-bold uppercase tracking-wide text-gray-500">CRA B300 E (25) · Page 4</div><h3 className="text-lg font-bold text-gray-900 mt-1">Part C - Cannabis product inventory - Packaged</h3></div><div className="text-xs text-gray-500">{partC.sourceCount} supplemental source records</div></div>
-                <div className="overflow-x-auto"><table className="w-full min-w-[1040px] border-collapse text-xs sm:text-sm"><thead><tr><th className="w-[300px] p-3 text-left border border-gray-300">Inventory category</th>{B300_PACKAGED_PRODUCTS.map(p=><th key={p} className="min-w-[125px] p-3 text-center border border-gray-300"><div className="text-[11px] uppercase text-gray-500">{B300_PACKAGED_META[p].unit}</div><div className="font-bold mt-1">{p}</div></th>)}</tr></thead><tbody>
+                <div className="overflow-x-auto"><PaginatedTable className="w-full min-w-[1040px] border-collapse text-xs sm:text-sm"><thead><tr><th className="w-[300px] p-3 text-left border border-gray-300">Inventory category</th>{B300_PACKAGED_PRODUCTS.map(p=><th key={p} className="min-w-[125px] p-3 text-center border border-gray-300"><div className="text-[11px] uppercase text-gray-500">{B300_PACKAGED_META[p].unit}</div><div className="font-bold mt-1">{p}</div></th>)}</tr></thead><tbody>
                     <tr><td className="p-2.5 border border-gray-300 font-bold">Opening inventory E</td>{B300_PACKAGED_PRODUCTS.map(p=><td key={p} className="p-2.5 border border-gray-300 text-right tabular-nums">{packagedValue(p,partC.products[p].opening)}</td>)}</tr>
                     <tr className="section-row"><td colSpan="7" className="p-2 border border-gray-300">Additions to inventory</td></tr>
                     {B300_PACKAGED_ADDITION_ROWS.map(row=><tr key={row.key}><td className="p-2 border border-gray-300">{row.label}</td>{B300_PACKAGED_PRODUCTS.map(p=><td key={p} className="p-2 border border-gray-300 text-right tabular-nums">{packagedValue(p,partC.products[p].additions[row.key])}</td>)}</tr>)}
@@ -2226,22 +2252,22 @@ const { useState, useEffect, useMemo, useRef } = React;
                     <tr className="total-row"><td className="p-2.5 border border-gray-300">Total reductions G</td>{B300_PACKAGED_PRODUCTS.map(p=><td key={p} className="p-2.5 border border-gray-300 text-right tabular-nums font-semibold">{packagedValue(p,partC.products[p].totalReductions)}</td>)}</tr>
                     <tr><td className="p-2.5 border border-gray-300 font-semibold">Inventory adjustments (+ or -) H</td>{B300_PACKAGED_PRODUCTS.map(p=><td key={p} className="p-2.5 border border-gray-300 text-right tabular-nums">{packagedValue(p,partC.products[p].adjustment,true)}</td>)}</tr>
                     <tr className="closing-row"><td className="p-3 border border-gray-300">Closing inventory (E + F - G +/- H)</td>{B300_PACKAGED_PRODUCTS.map(p=><td key={p} className="p-3 border border-gray-300 text-right tabular-nums font-bold">{packagedValue(p,partC.products[p].closing)}</td>)}</tr>
-                </tbody></table></div></div>;
+                </tbody></PaginatedTable></div></div>;
 
             const PartDTable = () => <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 bg-gray-50 border-b flex flex-col sm:flex-row sm:justify-between gap-2"><div><div className="text-xs font-bold uppercase tracking-wide text-gray-500">CRA B300 E (25) · Page 5</div><h3 className="text-lg font-bold text-gray-900 mt-1">Part D - Cannabis excise stamp inventory</h3></div><div className="text-xs text-gray-500">{partD.sourceCount} jurisdiction record(s)</div></div>
-                <div className="overflow-x-auto"><table className="w-full min-w-[960px] border-collapse text-xs sm:text-sm"><thead className="bg-white"><tr>{['Jurisdiction','A · Opening inventory','B · Stamps received','C · Stamps used for products','D · Unusable stamps','E · Adjustments (+/-)','F · Closing inventory'].map(h=><th key={h} className="p-3 border border-gray-300 text-center font-semibold text-gray-700">{h}</th>)}</tr></thead><tbody>{B300_JURISDICTIONS.map(({name})=>{const r=partD.rows[name];return <tr key={name}><td className="p-2.5 border border-gray-300 font-medium text-gray-700">{name}</td>{[r.opening,r.received,r.used,r.unusable,r.adjustment,r.closing].map((v,i)=><td key={i} className={`p-2.5 border border-gray-300 text-right tabular-nums ${i===5?'font-bold bg-emerald-50/40':''}`}>{i===4&&v>0?'+':''}{Math.round(v).toLocaleString('en-CA')}</td>)}</tr>})}</tbody></table></div></div>;
+                <div className="overflow-x-auto"><PaginatedTable className="w-full min-w-[960px] border-collapse text-xs sm:text-sm"><thead className="bg-white"><tr>{['Jurisdiction','A · Opening inventory','B · Stamps received','C · Stamps used for products','D · Unusable stamps','E · Adjustments (+/-)','F · Closing inventory'].map(h=><th key={h} className="p-3 border border-gray-300 text-center font-semibold text-gray-700">{h}</th>)}</tr></thead><tbody>{B300_JURISDICTIONS.map(({name})=>{const r=partD.rows[name];return <tr key={name}><td className="p-2.5 border border-gray-300 font-medium text-gray-700">{name}</td>{[r.opening,r.received,r.used,r.unusable,r.adjustment,r.closing].map((v,i)=><td key={i} className={`p-2.5 border border-gray-300 text-right tabular-nums ${i===5?'font-bold bg-emerald-50/40':''}`}>{i===4&&v>0?'+':''}{Math.round(v).toLocaleString('en-CA')}</td>)}</tr>})}</tbody></PaginatedTable></div></div>;
 
             const PartETable = () => {
                 const data=partE.products[activeSalesProduct]; const meta=B300_PART_E_META[activeSalesProduct];
                 return <div className="space-y-5">
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="px-5 py-4 bg-gray-50 border-b"><div className="text-xs font-bold uppercase tracking-wide text-gray-500">CRA B300 E (25) · Pages 6-11</div><div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mt-1"><h3 className="text-lg font-bold text-gray-900">Part E - Calculation of the sales and duty payable</h3><div className="text-xs text-gray-500">{partE.sourceCount} sales/duty source record(s)</div></div></div>
-                        <div className="px-4 sm:px-5 pt-4"><div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">{B300_PART_E_PRODUCTS.map(product=><button key={product} onClick={()=>setActiveSalesProduct(product)} className={`shrink-0 px-3.5 py-2 rounded-xl border text-sm font-semibold transition-colors ${activeSalesProduct===product?'theme-primary-bg text-white theme-primary-border':'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{product}</button>)}</div></div>
+                        <div className="px-4 sm:px-5 pt-4"><div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">{B300_PART_E_PRODUCTS.map(product=><button data-license-navigation="true" key={product} onClick={()=>setActiveSalesProduct(product)} className={`shrink-0 px-3.5 py-2 rounded-xl border text-sm font-semibold transition-colors ${activeSalesProduct===product?'theme-primary-bg text-white theme-primary-border':'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{product}</button>)}</div></div>
                         <div className="px-5 py-3 border-y bg-white flex flex-wrap items-center gap-x-5 gap-y-2"><div><span className="text-xs text-gray-500">Product</span><div className="font-bold text-gray-900">{activeSalesProduct}</div></div><div><span className="text-xs text-gray-500">Sales quantity unit</span><div className="font-medium text-gray-700">{meta.unit}</div></div><div className="ml-auto text-right"><span className="text-xs text-gray-500">Product duty subtotal</span><div className="font-bold theme-primary-text">{money(data.totals.duty + data.totals.additionalDuty + data.totals.adjustmentAdditionalDuty)}</div></div></div>
-                        <div className="overflow-x-auto"><table className="w-full min-w-[1080px] border-collapse text-xs sm:text-sm"><thead><tr>{['Province / territory','Sales ($)',`Sales (${meta.unit})`,'Packages sold','Cannabis duty ($)','Additional cannabis duty ($)','Adjustment to additional duty ($)'].map(h=><th key={h} className="p-3 border border-gray-300 text-center font-semibold text-gray-700">{h}</th>)}</tr></thead><tbody>{B300_JURISDICTIONS.map(({name})=>{const r=data.rows[name];const addNa=B300_PART_E_ADDITIONAL_DUTY_NA.includes(name);const adjNa=!B300_PART_E_ADJUSTMENT_ALLOWED.includes(name);return <tr key={name}><td className="p-2.5 border border-gray-300 font-medium">{name}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.salesAmount)}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{salesQty(activeSalesProduct,r.salesQuantity)}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{Math.round(r.packagesSold).toLocaleString('en-CA')}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.duty)}</td>{addNa?<td className="b300-na-cell p-2.5 border border-gray-300 text-center text-xs font-semibold">N/A</td>:<td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.additionalDuty)}</td>}{adjNa?<td className="b300-na-cell p-2.5 border border-gray-300 text-center text-xs font-semibold">N/A</td>:<td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.adjustmentAdditionalDuty)}</td>}</tr>})}
+                        <div className="overflow-x-auto"><PaginatedTable className="w-full min-w-[1080px] border-collapse text-xs sm:text-sm"><thead><tr>{['Province / territory','Sales ($)',`Sales (${meta.unit})`,'Packages sold','Cannabis duty ($)','Additional cannabis duty ($)','Adjustment to additional duty ($)'].map(h=><th key={h} className="p-3 border border-gray-300 text-center font-semibold text-gray-700">{h}</th>)}</tr></thead><tbody>{B300_JURISDICTIONS.map(({name})=>{const r=data.rows[name];const addNa=B300_PART_E_ADDITIONAL_DUTY_NA.includes(name);const adjNa=!B300_PART_E_ADJUSTMENT_ALLOWED.includes(name);return <tr key={name}><td className="p-2.5 border border-gray-300 font-medium">{name}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.salesAmount)}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{salesQty(activeSalesProduct,r.salesQuantity)}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{Math.round(r.packagesSold).toLocaleString('en-CA')}</td><td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.duty)}</td>{addNa?<td className="b300-na-cell p-2.5 border border-gray-300 text-center text-xs font-semibold">N/A</td>:<td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.additionalDuty)}</td>}{adjNa?<td className="b300-na-cell p-2.5 border border-gray-300 text-center text-xs font-semibold">N/A</td>:<td className="p-2.5 border border-gray-300 text-right tabular-nums">{money(r.adjustmentAdditionalDuty)}</td>}</tr>})}
                             <tr className="total-row"><td className="p-3 border border-gray-300">Total</td><td className="p-3 border border-gray-300 text-right">{money(data.totals.salesAmount)}</td><td className="p-3 border border-gray-300 text-right">{salesQty(activeSalesProduct,data.totals.salesQuantity)}</td><td className="p-3 border border-gray-300 text-right">{Math.round(data.totals.packagesSold).toLocaleString('en-CA')}</td><td className="p-3 border border-gray-300 text-right">{money(data.totals.duty)}</td><td className="p-3 border border-gray-300 text-right">{money(data.totals.additionalDuty)}</td><td className="p-3 border border-gray-300 text-right">{money(data.totals.adjustmentAdditionalDuty)}</td></tr>
-                        </tbody></table></div>
+                        </tbody></PaginatedTable></div>
                     </div>
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6"><div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4"><div><div className="text-xs font-bold uppercase tracking-wide text-gray-500">CRA B300 E (25) · Page 12</div><h3 className="text-lg font-bold text-gray-900 mt-1">Total net amount</h3><p className="text-sm text-gray-500 mt-1">Consolidated duty totals across all six Part E product tables.</p></div><div className="rounded-xl theme-soft-bg theme-soft-border border px-4 py-3 min-w-[220px]"><div className="text-xs text-gray-500">Net amount · Line 24</div><div className="text-2xl font-bold theme-primary-text mt-1">{money(partE.summary.netAmount)}</div></div></div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-5">{[
                         ['19 · Cannabis duty payable',partE.summary.dutyPayable],['20 · Additional cannabis duty payable',partE.summary.additionalDutyPayable],['21 · Adjustment to additional duty',partE.summary.adjustmentPayable],['22 · Total',partE.summary.total],['23 · Refund (B301)',partE.summary.refund],['24 · Net amount',partE.summary.netAmount]
@@ -2250,6 +2276,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             };
 
             const partTabs=[
+                {key:'A',label:'Part A · Business profile',sub:'Page 1',count:businessMissing.length ? 'Incomplete' : 'Ready'},
                 {key:'B',label:'Part B · Unpackaged',sub:'Pages 2-3',count:report.inPeriod.length},
                 {key:'C',label:'Part C · Packaged',sub:'Page 4',count:partC.sourceCount},
                 {key:'D',label:'Part D · Excise Stamps',sub:'Page 5',count:partD.sourceCount},
@@ -2262,8 +2289,14 @@ const { useState, useEffect, useMemo, useRef } = React;
                 <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_.8fr] gap-5"><div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6"><h2 className="text-lg font-bold text-gray-900">Reporting Period</h2><p className="text-sm text-gray-500 mt-1">All B300 parts use the same reporting period so inventory, stamps, sales and duties reconcile as one return.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5"><div><label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period Start</label><input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period End</label><input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white"/></div></div></div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-gray-900">Audit Readiness</h2><p className="text-sm text-gray-500 mt-1">Cross-part data checks before PDF export.</p></div><span className={`text-xs font-bold px-2.5 py-1 rounded-full ${report.invalidTransactions.length===0&&report.negativeClosing.length===0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}`}>{report.invalidTransactions.length===0&&report.negativeClosing.length===0?'PASS':'REVIEW'}</span></div><div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-lg bg-gray-50 border p-3"><div className="text-2xl font-bold text-gray-900">{report.coverageCovered}/{report.coverageTotal}</div><div className="text-xs text-gray-500 mt-1">Part B matrix coverage</div></div><div className="rounded-lg bg-gray-50 border p-3"><div className="text-2xl font-bold text-gray-900">{partC.sourceCount+partD.sourceCount+partE.sourceCount}</div><div className="text-xs text-gray-500 mt-1">Part C-E supplemental records</div></div></div><div className="mt-4 space-y-2 text-sm"><div className={report.invalidTransactions.length?'text-red-700':'text-emerald-700'}>• {report.invalidTransactions.length} invalid Part B N/A record(s)</div><div className={report.negativeClosing.length?'text-red-700':'text-emerald-700'}>• {report.negativeClosing.length} negative Part B closing balance(s)</div><div className={businessMissing.length?'text-amber-700':'text-emerald-700'}>• {businessMissing.length} missing CRA business profile field(s)</div></div></div></div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2"><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">{partTabs.map(tab=><button key={tab.key} onClick={()=>setActivePart(tab.key)} className={`rounded-xl px-4 py-3 text-left border transition-all ${activePart===tab.key?'theme-soft-bg theme-soft-border shadow-sm':'bg-white border-transparent hover:bg-gray-50'}`}><div className="flex items-center justify-between gap-3"><span className={`text-sm font-bold ${activePart===tab.key?'theme-primary-text':'text-gray-800'}`}>{tab.label}</span><span className="text-[11px] rounded-full bg-gray-100 text-gray-500 px-2 py-0.5">{tab.count}</span></div><div className="text-xs text-gray-500 mt-1">{tab.sub}</div></button>)}</div></div>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2"><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2">{partTabs.map(tab=><button data-license-navigation="true" key={tab.key} aria-pressed={activePart===tab.key} onClick={()=>setActivePart(tab.key)} className={`rounded-xl px-4 py-3 text-left border transition-all ${activePart===tab.key?'theme-soft-bg theme-soft-border shadow-sm':'bg-white border-transparent hover:bg-gray-50'}`}><div className="flex items-center justify-between gap-3"><span className={`text-sm font-bold ${activePart===tab.key?'theme-primary-text':'text-gray-800'}`}>{tab.label}</span><span className="text-[11px] rounded-full bg-gray-100 text-gray-500 px-2 py-0.5">{tab.count}</span></div><div className="text-xs text-gray-500 mt-1">{tab.sub}</div></button>)}</div></div>
 
+                {activePart==='A' && <section className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
+                    <h3>Part A · Business information</h3><p className="text-sm text-gray-500 mt-2">Current business profile from Settings. The reporting dates below follow your selected period. Sample values are for demonstration only.</p>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">{[
+                        ['Legal name',settings.craLegalName],['Business number',settings.craBusinessNumber],['RD program',settings.craRdProgram],['Return type',settings.craReturnType],['Physical address',settings.craAddress],['City',settings.craCity],['Province / territory',settings.craProvince],['Postal code',settings.craPostalCode],['Reporting period start',periodStart],['Reporting period end',periodEnd]
+                    ].map(([label,value])=><div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="text-sm font-medium mt-1">{value || 'Not configured'}</dd></div>)}</dl>
+                </section>}
                 {activePart==='B' && <div className="space-y-6">{(businessMissing.length>0||report.dateFallbackCount>0||report.missingCoverage.length>0)&&<details className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-5"><summary className="cursor-pointer font-semibold text-amber-900">Part B coverage & data-quality notes</summary><div className="mt-3 text-sm text-amber-900/90 space-y-3">{businessMissing.length>0&&<p><strong>CRA business profile:</strong> configure {businessMissing.map(([l])=>l).join(', ')} in Settings.</p>}{report.dateFallbackCount>0&&<p><strong>Legacy date fallback:</strong> {report.dateFallbackCount} record(s) use an action date or timestamp fallback.</p>}{report.missingCoverage.length>0&&<p><strong>Sample coverage gaps:</strong> {report.missingCoverage.length} valid Part B cells have no source record in this period.</p>}</div></details>}<B300Table products={B300_PAGE_2_PRODUCTS} pageNumber={2}/><B300Table products={B300_PAGE_3_PRODUCTS} pageNumber={3}/></div>}
                 {activePart==='C' && <div className="space-y-4">{partC.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No Part C source records yet.</strong> Part C uses packaged-product records rather than the unpackaged ledger. Generate the CRA Parts C/D/E Coverage Pack to preview a populated report.</div>}<PartCTable/></div>}
                 {activePart==='D' && <div className="space-y-4">{partD.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No excise-stamp records yet.</strong> Part D is jurisdiction-based and is intentionally separated from cannabis batch inventory.</div>}<PartDTable/></div>}
@@ -2382,7 +2415,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1080px] text-left border-collapse">
+                        <PaginatedTable className="w-full min-w-[1080px] text-left border-collapse">
                             <thead className="bg-white">
                                 <tr className="border-b border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-600">
                                     <th className="px-6 py-4 w-[180px]">Date & Time</th>
@@ -2418,7 +2451,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                     </tr>
                                 ))}
                             </tbody>
-                        </table>
+                        </PaginatedTable>
                     </div>
                 </div>
             );
@@ -2473,14 +2506,14 @@ const { useState, useEffect, useMemo, useRef } = React;
             };
 
             return (
-                <div className="space-y-6 w-full">
+                <div className="database-management compliance-settings space-y-6 w-full">
                     <PageHeader
                         title="Database Management"
                         subtitle="Export, back up, and maintain the local transaction database."
                     />
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6">
-                        <h2 className="text-base font-semibold text-gray-800 leading-6">CSV Database Engine (Local)</h2>
-                        <p className="text-sm leading-6 text-gray-500 mt-1">This MVP utilizes your browser's LocalStorage to persist data securely. Use the tools below to export backups or analyze data externally.</p>
+                        <h2 className="text-base font-semibold text-gray-800 leading-6">Local transaction records</h2>
+                        <p className="text-sm leading-6 text-gray-500 mt-1">Records are saved in this browser. Export a copy for backup or analysis before clearing data.</p>
                     </div>
                     <div className="space-y-4">
                         <div className="theme-soft-bg theme-soft-border rounded-xl shadow-sm border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 transition-colors">
@@ -2691,7 +2724,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             };
 
             return (
-                <div className="w-full space-y-6 lg:space-y-8">
+                <div className="compliance-settings w-full space-y-6 lg:space-y-8">
                     <PageHeader title="System Settings" subtitle="Configure localization, appearance, and shared operational values." />
                     <section>
                         <div className="bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-sm">
@@ -2788,7 +2821,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                             {Object.entries(THEME_PRESETS).map(([key, theme]) => {
                                 const active = (themeKey || settings.theme || DEFAULT_SETTINGS.theme) === key;
                                 return (
-                                    <button key={key} type="button" onClick={() => onUpdate('theme', key)} className={`text-left bg-white p-4 rounded-xl border-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${active ? 'border-gray-900 ring-2 ring-offset-2' : 'border-gray-200'}`} style={active ? {'--tw-ring-color': theme.primary} : {}}>
+                                    <button key={key} type="button" aria-pressed={active} onClick={() => onUpdate('theme', key)} className={`text-left bg-white p-4 rounded-xl border-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${active ? 'border-gray-900 ring-2 ring-offset-2' : 'border-gray-200'}`} style={active ? {'--tw-ring-color': theme.primary} : {}}>
                                         <div className="flex items-center justify-between gap-3 mb-3">
                                             <span className="font-semibold text-gray-800">{theme.name}</span>
                                             {active && <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{backgroundColor: theme.soft, color: theme.primary}}>Active</span>}
@@ -2824,6 +2857,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 
         const DataGenerationModal = ({ onClose, onGenerate }) => {
             const scenarios = [
+                { group:'cra', key:'craPartA', id:'CRA-P1', title:'B300 Part A · Business Profile Sample', text:'Fills empty business profile fields with fictional demo data. Existing values are preserved. Review or edit the profile in Settings.' },
                 { group:'cra', key:'craPartB', id:'CRA-P2P3', title:'B300 Part B · Unpackaged Inventory Full Coverage Pack', text:'Generates opening inventory plus every applicable (non-N/A) addition/reduction cell and adjustments for all 9 unpackaged product columns, with realistic Early → Mid → Late genealogy and batch links.' },
                 { group:'cra', key:'craPartC', id:'CRA-P4', title:'B300 Part C · Packaged Inventory Coverage Pack', text:'Generates packaged-product opening inventory, packaged/purchased additions, stamped/sold/destroyed/other reductions, adjustments, and closing inventory for CRA page 4.' },
                 { group:'cra', key:'craPartD', id:'CRA-P5', title:'B300 Part D · Excise Stamp Inventory Coverage Pack', text:'Generates jurisdiction-level opening stamps, stamps received/used, unusable stamps, adjustments, and closing inventory for CRA page 5.' },
@@ -3235,7 +3269,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                     });
                 }
 
-                onGenerate(dummyTransactions);
+                onGenerate(dummyTransactions, selectedStories.craPartA ? {craLegalName:'Demo Cannabis Company (Sample)', craBusinessNumber:'123456789', craRdProgram:'0001', craAddress:'100 Example Street', craCity:'Vancouver', craProvince:'BC', craPostalCode:'V6B 1A1', craReturnType:'Original'} : null);
             };
 
             return (
@@ -3260,7 +3294,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                         </div>
                         <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                             <div className="mb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-1">
-                                <p className="text-sm text-gray-600">Choose validation data to inject. The CRA Part B coverage pack is shown first, followed by the 8 requirement scenarios and User Stories US-001 through US-022.</p>
+                                <p className="text-sm text-gray-600">Choose validation data to inject. The CRA Part A business profile is shown first, followed by the 8 requirement scenarios and User Stories US-001 through US-022.</p>
                                 <p className="text-xs text-gray-400">Showing {filteredStories.length} of {scenarios.length}</p>
                             </div>
                             {['cra','requirements','stories'].map((group, index) => {

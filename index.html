@@ -241,6 +241,8 @@
       }
     </style>
     <link rel="stylesheet" href="./assets/css/workspace.css" />
+    <link rel="stylesheet" href="./assets/css/workspace-chrome.css" />
+  <link rel="stylesheet" href="./assets/css/license-workspace.css" />
   </head>
   <body>
     <div id="licenseWatermark" aria-hidden="true">
@@ -335,28 +337,58 @@
       </div>
     </section>
     <section id="workspaceView" class="workspace hidden">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark">B3</span><span>B300 Compliance Cloud</span>
+      <dialog
+        id="workspaceDrawer"
+        class="workspace-drawer"
+        aria-labelledby="drawerTitle"
+      >
+        <div class="drawer-heading">
+          <div class="brand">
+            <span class="brand-mark">MW</span><span>MarryWanna</span>
+          </div>
+          <button
+            id="closeDrawer"
+            class="drawer-close"
+            type="button"
+            aria-label="Close workspace drawer"
+          >
+            ×
+          </button>
+        </div>
+        <div class="drawer-intro">
+          <div class="eyebrow">Workspace controls</div>
+          <h2 id="drawerTitle">Your workspace</h2>
+          <p>Switch your view while keeping the same operational record.</p>
         </div>
         <div class="workspace-name" id="workspaceName"></div>
-        <div class="spacer"></div>
         <nav class="workspace-switch" aria-label="Switch workspace">
           <button data-workspace="inventory" aria-pressed="false">
-            Inventory</button
-          ><button data-workspace="operator" aria-pressed="false">
-            Compliance
+            <span>Inventory</span
+            ><small>Batches, processing &amp; delivery</small>
+          </button>
+          <button data-workspace="operator" aria-pressed="false">
+            <span>Compliance</span
+            ><small>Records, controls &amp; B300 reporting</small>
           </button>
         </nav>
-        <div id="testUnlockBadge" class="test-unlock-badge hidden">
-          Testing unlock
+        <div class="drawer-status">
+          <div class="db-badge">Shared browser data</div>
+          <div id="testUnlockBadge" class="test-unlock-badge hidden">
+            Testing unlock
+          </div>
+          <p>
+            This demo saves changes in this browser. Your account and license
+            controls are in your profile.
+          </p>
         </div>
-        <div class="db-badge">Shared browser data</div>
+      </dialog>
+      <div id="profileParking" hidden>
         <div id="licenseProfile" class="license-profile">
           <button
             class="license-profile-button"
             type="button"
-            onclick="MarryLicense.toggleProfile()"
+            aria-expanded="false"
+            aria-controls="accountOptions"
             aria-label="Open user profile"
           >
             <span class="license-profile-avatar" id="profileAvatar">U</span
@@ -368,11 +400,15 @@
               ></span></span
             ><span>▾</span>
           </button>
-          <div class="license-profile-menu">
+          <div
+            id="accountOptions"
+            class="license-profile-menu"
+            aria-label="Account options"
+          >
             <button
               class="license-menu-item"
               type="button"
-              onclick="MarryLicense.open()"
+              data-profile-license
             >
               License</button
             ><button id="freeUnlockBtn" class="license-menu-item" type="button">
@@ -392,7 +428,7 @@
             </div>
           </div>
         </div>
-      </header>
+      </div>
       <iframe
         id="appFrame"
         class="frame"
@@ -516,6 +552,15 @@
     <script src="./license.js"></script>
     <script>
       (() => {
+        const profile = document.getElementById("licenseProfile");
+        const profileNodes = new Map(
+          [profile, ...profile.querySelectorAll("[id]")].map((node) => [
+            node.id,
+            node,
+          ]),
+        );
+        const byId = (id) =>
+          document.getElementById(id) || profileNodes.get(id);
         const SESSION_KEY = "b300_auth_session";
         const ACCOUNTS = {
           operator: {
@@ -533,12 +578,12 @@
             src: "./batch-manager-v2.html",
           },
         };
-        const loginView = document.getElementById("loginView"),
-          workspaceView = document.getElementById("workspaceView"),
-          frame = document.getElementById("appFrame"),
-          switchRoleBtn = document.getElementById("switchRoleBtn"),
-          freeUnlockBtn = document.getElementById("freeUnlockBtn"),
-          testUnlockBadge = document.getElementById("testUnlockBadge");
+        const loginView = byId("loginView"),
+          workspaceView = byId("workspaceView"),
+          frame = byId("appFrame"),
+          switchRoleBtn = byId("switchRoleBtn"),
+          freeUnlockBtn = byId("freeUnlockBtn"),
+          testUnlockBadge = byId("testUnlockBadge");
         let currentSession = null;
         const readSession = () => {
           try {
@@ -551,8 +596,68 @@
           s &&
           ACCOUNTS[s.username] &&
           ACCOUNTS[s.username].workspace === s.workspace;
-        const closeProfile = () =>
-          document.getElementById("licenseProfile").classList.remove("open");
+        const closeProfile = () => {
+          profile.classList.remove("open");
+          profile
+            .querySelector(".license-profile-button")
+            .setAttribute("aria-expanded", "false");
+        };
+        const drawer = byId("workspaceDrawer");
+        let drawerTrigger = null;
+        function closeDrawer() {
+          if (drawer.open) drawer.close();
+        }
+        drawer.addEventListener("close", () => {
+          drawerTrigger?.setAttribute("aria-expanded", "false");
+          if (drawerTrigger?.isConnected) drawerTrigger.focus();
+        });
+        byId("closeDrawer").onclick = closeDrawer;
+        drawer.addEventListener("click", (event) => {
+          if (event.target === drawer) {
+            const rect = drawer.getBoundingClientRect();
+            if (
+              event.clientX < rect.left ||
+              event.clientX > rect.right ||
+              event.clientY < rect.top ||
+              event.clientY > rect.bottom
+            )
+              closeDrawer();
+          }
+        });
+        profile.querySelector(".license-profile-button").onclick = () => {
+          const open = profile.classList.toggle("open");
+          profile
+            .querySelector(".license-profile-button")
+            .setAttribute("aria-expanded", String(open));
+        };
+        profile.querySelector("[data-profile-license]").onclick = () =>
+          MarryLicense.open();
+        window.WorkspaceChrome = {
+          find: (id) => profileNodes.get(id),
+          closeProfile,
+          mount(doc) {
+            const main = doc.querySelector("main");
+            if (!main || main.querySelector(".content-context-bar")) return;
+            const row = doc.createElement("div");
+            row.className = "content-context-bar";
+            const label =
+              currentSession?.workspace === "v1"
+                ? "Compliance workspace"
+                : "Inventory workspace";
+            row.innerHTML =
+              '<div class="content-context-left"><button type="button" class="workspace-drawer-trigger" aria-label="Open workspace drawer" aria-expanded="false" title="Workspace controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16M5.5 8h1M5.5 12h1"/></svg></button><span class="content-workspace-label">' +
+              label +
+              "</span></div>";
+            row.appendChild(profile);
+            main.prepend(row);
+            row.querySelector("button").onclick = (event) => {
+              closeProfile();
+              drawerTrigger = event.currentTarget;
+              drawerTrigger.setAttribute("aria-expanded", "true");
+              drawer.showModal();
+            };
+          },
+        };
         function syncFreeUnlockUI() {
           const enabled = !!MarryLicense.state.testUnlock;
           freeUnlockBtn.textContent = enabled
@@ -574,8 +679,7 @@
           if (!actual) return false;
           switchRoleBtn.classList.remove("hidden");
           switchRoleBtn.textContent = `Switch to ${actual === "Admin" ? "Operator" : "Admin"}`;
-          document.getElementById("userRole").textContent =
-            `Compliance Specialist · ${actual}`;
+          byId("userRole").textContent = `Compliance Specialist · ${actual}`;
           return true;
         }
         function notifyWorkspaceTestUnlock() {
@@ -591,6 +695,8 @@
         }
         function showLogin() {
           currentSession = null;
+          closeDrawer();
+          byId("profileParking").appendChild(profile);
           frame.src = "about:blank";
           workspaceView.classList.add("hidden");
           loginView.classList.remove("hidden");
@@ -601,6 +707,9 @@
         function openWorkspace(session) {
           const account = ACCOUNTS[session.username];
           if (!account) return showLogin();
+          closeDrawer();
+          closeProfile();
+          byId("profileParking").appendChild(profile);
           currentSession = session;
           document
             .querySelectorAll("[data-workspace]")
@@ -612,13 +721,13 @@
             );
           loginView.classList.add("hidden");
           workspaceView.classList.remove("hidden");
-          document.getElementById("workspaceName").textContent =
+          byId("workspaceName").textContent =
             account.workspace === "v2"
               ? "Inventory Workspace"
               : "Compliance Workspace";
-          document.getElementById("userName").textContent = account.name;
-          document.getElementById("userRole").textContent = account.role;
-          document.getElementById("profileAvatar").textContent = account.name
+          byId("userName").textContent = account.name;
+          byId("userRole").textContent = account.role;
+          byId("profileAvatar").textContent = account.name
             .split(/\s+/)
             .map((x) => x[0])
             .join("")
@@ -646,7 +755,7 @@
             return;
           syncLegacyRole(e.data.role);
         });
-        document.getElementById("loginForm").onsubmit = (e) => {
+        byId("loginForm").onsubmit = (e) => {
           e.preventDefault();
           const fd = new FormData(e.currentTarget),
             username = String(fd.get("username") || "")
@@ -655,7 +764,7 @@
             password = String(fd.get("password") || ""),
             account = ACCOUNTS[username];
           if (!account || account.password !== password) {
-            document.getElementById("loginError").classList.add("show");
+            byId("loginError").classList.add("show");
             return;
           }
           const session = {
@@ -665,7 +774,7 @@
             signedInAt: new Date().toISOString(),
           };
           sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-          document.getElementById("loginError").classList.remove("show");
+          byId("loginError").classList.remove("show");
           openWorkspace(session);
         };
         freeUnlockBtn.onclick = () => {
@@ -686,7 +795,7 @@
             console.warn("Legacy role switch unavailable", err);
           }
         };
-        document.getElementById("logoutBtn").onclick = () => {
+        byId("logoutBtn").onclick = () => {
           sessionStorage.removeItem(SESSION_KEY);
           MarryLicense.clearTestUnlock();
           syncFreeUnlockUI();
@@ -702,7 +811,10 @@
         function enterRole(username, demo = false) {
           const account = ACCOUNTS[username];
           if (!account) return;
-          if (demo) { MarryLicense.setTestUnlock(true); MarryLicense.close(); }
+          if (demo) {
+            MarryLicense.setTestUnlock(true);
+            MarryLicense.close();
+          }
           const session = {
             username,
             workspace: account.workspace,

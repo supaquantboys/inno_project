@@ -81,7 +81,7 @@
       }
     });
     const stamp = document.getElementById("stampPanel");
-    if (stamp && !has("excise_stamps")) stamp.remove();
+    // Keep the stamps page visible in read-only mode.
     const note = document.querySelector(".side-note");
     if (note) {
       const f = [...readFeatures()].filter((x) => x !== "marrywanna_core");

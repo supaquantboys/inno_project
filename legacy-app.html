@@ -1,57 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en-CA">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>B300 Compliance Cloud</title>
-    <link rel="stylesheet" href="./assets/css/compliance.css">
+    <link rel="stylesheet" href="./assets/css/compliance.css" />
     <script src="./assets/vendor/react.production.min.js"></script>
     <script src="./assets/vendor/react-dom.production.min.js"></script>
     <script src="./assets/vendor/lucide.js"></script>
     <script src="./assets/vendor/pdf-lib.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: #f3f4f6;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
 
-        /* Theme tokens */
-        .theme-primary-bg { background-color: var(--theme-primary) !important; }
-        .theme-primary-bg:hover { background-color: var(--theme-primary-hover) !important; }
-        .theme-primary-text { color: var(--theme-primary) !important; }
-        .theme-primary-border { border-color: var(--theme-primary) !important; }
-        .theme-primary-ring:focus { --tw-ring-color: var(--theme-primary) !important; }
-        .theme-secondary-bg { background-color: var(--theme-secondary) !important; }
-        .theme-secondary-text { color: var(--theme-secondary) !important; }
-        .theme-soft-bg { background-color: var(--theme-primary-soft) !important; }
-        .theme-soft-border { border-color: var(--theme-primary-soft-border) !important; }
+      /* Theme tokens */
+      .theme-primary-bg {
+        background-color: var(--theme-primary) !important;
+      }
+      .theme-primary-bg:hover {
+        background-color: var(--theme-primary-hover) !important;
+      }
+      .theme-primary-text {
+        color: var(--theme-primary) !important;
+      }
+      .theme-primary-border {
+        border-color: var(--theme-primary) !important;
+      }
+      .theme-primary-ring:focus {
+        --tw-ring-color: var(--theme-primary) !important;
+      }
+      .theme-secondary-bg {
+        background-color: var(--theme-secondary) !important;
+      }
+      .theme-secondary-text {
+        color: var(--theme-secondary) !important;
+      }
+      .theme-soft-bg {
+        background-color: var(--theme-primary-soft) !important;
+      }
+      .theme-soft-border {
+        border-color: var(--theme-primary-soft-border) !important;
+      }
 
-        @media (max-width: 767px) {
-            .mobile-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            .mobile-nav-label { display: none; }
+      @media (max-width: 767px) {
+        .mobile-scroll-x {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
-
-        /* Custom Tooltip Styles */
-        .group:hover .custom-tooltip {
-            opacity: 1;
-            visibility: visible;
+        .mobile-nav-label {
+          display: none;
         }
+      }
 
-        .b300-na-cell {
-            background-color: #f3f4f6;
-            background-image: repeating-linear-gradient(135deg, rgba(100,116,139,.18) 0, rgba(100,116,139,.18) 1px, transparent 1px, transparent 7px);
-            color: #64748b;
-        }
-        .b300-report-table th, .b300-report-table td { vertical-align: middle; }
-        .b300-report-table .section-row td { background: #f8fafc; font-weight: 700; color: #334155; }
-        .b300-report-table .total-row td { background: #f8fafc; font-weight: 700; }
-        .b300-report-table .closing-row td { background: var(--theme-primary-soft); font-weight: 800; }
+      /* Custom Tooltip Styles */
+      .group:hover .custom-tooltip {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .b300-na-cell {
+        background-color: #f3f4f6;
+        background-image: repeating-linear-gradient(
+          135deg,
+          rgba(100, 116, 139, 0.18) 0,
+          rgba(100, 116, 139, 0.18) 1px,
+          transparent 1px,
+          transparent 7px
+        );
+        color: #64748b;
+      }
+      .b300-report-table th,
+      .b300-report-table td {
+        vertical-align: middle;
+      }
+      .b300-report-table .section-row td {
+        background: #f8fafc;
+        font-weight: 700;
+        color: #334155;
+      }
+      .b300-report-table .total-row td {
+        background: #f8fafc;
+        font-weight: 700;
+      }
+      .b300-report-table .closing-row td {
+        background: var(--theme-primary-soft);
+        font-weight: 800;
+      }
     </style>
-<link rel="stylesheet" href="./assets/css/workspace.css">
-</head>
-<body>
+    <link rel="stylesheet" href="./assets/css/workspace.css" />
+    <link rel="stylesheet" href="./license.css" />
+    <link rel="stylesheet" href="./assets/css/workspace-chrome.css" />
+  <link rel="stylesheet" href="./assets/css/compliance-workspace.css" />
+  </head>
+  <body>
     <div id="root"></div>
 
     <script src="./assets/js/compliance.js"></script>
 
-</body>
+    <script src="./assets/js/workspace-chrome.js"></script>
+  </body>
 </html>

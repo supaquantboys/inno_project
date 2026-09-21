@@ -6,6 +6,8 @@ A static, browser-local inventory and compliance demo. Inventory staff work with
 
 Open **https://supaquantboys.github.io/inno_project/** and choose **Explore Inventory** or **Explore Compliance**. These buttons explicitly enter the existing testing-unlock mode for the browser session. The profile menu still provides offline-license testing and sign out.
 
+The workspace icon beside the content-area label opens an optional drawer for switching between Inventory and Compliance. There is no persistent global top bar. The workspace icon and profile sit in a pinned header at the top of the main content in both views. Inventory Overview prioritizes Needs attention before metrics, current inventory, and recent activity.
+
 Pages currently deploys `main`, from the repository root. Merge an approved change into `main` to update that demo. There is no application build step, server, API key, or client-side router to configure. All local assets use relative paths so the `/inno_project/` prefix works. Existing entry URLs and storage keys are retained.
 
 The Compliance interface is precompiled and its React, icon and PDF dependencies are bundled locally with their licenses. It no longer relies on CDNs at runtime. The existing report calculations and embedded CRA PDF template are retained.
@@ -41,7 +43,8 @@ Use fictional information. Data is saved in localStorage on the current origin; 
 
 ## Code map
 
-- `index.html`: shared entry, profile/license UI, workspace switching.
+- `index.html`: shared entry, workspace drawer, profile/license controller.
+- `assets/js/workspace-chrome.js`, `assets/css/workspace-chrome.css`: shared content-area profile placement and drawer styling.
 - `batch-manager-v2.html`: stable inventory entry point and explicit script order.
 - `assets/css/workspace.css`: shared design tokens, responsive layouts and controls.
 - `assets/css/inventory.css`: base inventory component styles.
@@ -70,3 +73,9 @@ The repository’s existing embedded CRA template cannot currently be parsed by 
 This is a prototype, not production authentication, shared multi-user infrastructure, tax advice, or a filing service. Local rollback cannot provide crash-safe database transactions. Generated inventory records cannot be edited individually; complete event reversal is future work. Older records are preserved as-is, including any historical classifications that need review. Packaged quantity remains in shared batch metadata; direct manual Part C records do not reconcile that metadata automatically.
 
 See [research and UX review](docs/B300_RESEARCH_AND_UX.md) and [workflow mapping](B300_WORKFLOW_NOTES.md).
+
+### Compliance presentation
+
+Compliance uses a shared typography scale and theme tokens, including persistent Evergreen, Ocean, Indigo, and Plum presets. Tables default to 10 rows per page (25 and 50 are optional), use bounded scroll areas with sticky headers, and retain full datasets for calculations and exports. Shared table pagination and feedback dialogs are maintained in `src/compliance.jsx`; layout refinements live in `assets/css/compliance-workspace.css`. Run `npm run build` after JSX changes.
+
+Unlicensed sessions allow browsing every workspace page. Operational actions and settings edits are disabled, while workspace switching, profile/license options, and table pagination remain available. The client-side license gate is a demo interface restriction, not production authorization.

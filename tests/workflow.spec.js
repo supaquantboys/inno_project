@@ -1,4 +1,11 @@
 const { test, expect } = require("@playwright/test");
+async function switchWorkspace(page, username) {
+  const active = page
+    .frames()
+    .find((f) => /\/(batch-manager-v2|legacy-app)\.html$/.test(f.url()));
+  await active.getByRole("button", { name: "Open workspace drawer" }).click();
+  await page.locator(`[data-workspace="${username}"]`).click();
+}
 async function enter(page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore Inventory" }).click();
@@ -308,7 +315,7 @@ test("switching to compliance retains records and protects generated event legs"
   const before = await page.evaluate(() =>
     localStorage.getItem("b300_transactions"),
   );
-  await page.getByRole("button", { name: "Compliance", exact: true }).click();
+  await switchWorkspace(page, "operator");
   const compliance = page.frameLocator("#appFrame").frameLocator("#f");
   await expect(
     compliance.getByRole("button", { name: "Inventory Ledger", exact: true }),
@@ -331,7 +338,7 @@ test("switching to compliance retains records and protects generated event legs"
   await expect(
     compliance.getByText("Reporting Period", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  await switchWorkspace(page, "inventory");
   await expect(
     app.getByRole("heading", { name: "Operations overview" }),
   ).toBeVisible();
@@ -374,7 +381,7 @@ test("offline PDF export clearly identifies the Part B fallback", async ({
   });
   const app = await enter(page);
   await receive(app);
-  await page.getByRole("button", { name: "Compliance", exact: true }).click();
+  await switchWorkspace(page, "operator");
   const compliance = page.frameLocator("#appFrame").frameLocator("#f");
   await compliance
     .getByRole("button", { name: "B300 Reports", exact: true })
@@ -392,5 +399,322 @@ test("offline PDF export clearly identifies the Part B fallback", async ({
   await expect(compliance.getByRole("dialog")).toContainText(
     "not a complete B300 return",
   );
+  expect(external).toEqual([]);
+});
+
+test("workspace drawer is optional and profile stays in main content across navigation", async ({
+  page,
+}) => {
+  const app = await enter(page);
+  await expect(page.locator(".topbar")).toHaveCount(0);
+  await expect(
+    page.getByRole("dialog", { name: "Your workspace" }),
+  ).toBeHidden();
+  await expect(app.locator("main #licenseProfile")).toBeVisible();
+  await app.getByRole("button", { name: "Open workspace drawer" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Your workspace" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Your workspace" }),
+  ).toBeHidden();
+  await expect(
+    app.getByRole("button", { name: "Open workspace drawer" }),
+  ).toBeFocused();
+  await app.getByRole("button", { name: "Open user profile" }).click();
+  await expect(
+    app.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    app.getByRole("button", { name: "Open user profile" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await app.getByRole("button", { name: "Activity", exact: true }).click();
+  await expect(app.locator("main #licenseProfile")).toBeVisible();
+  await app.getByRole("button", { name: "Open user profile" }).click();
+  await app.getByRole("button", { name: "License", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "License", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await switchWorkspace(page, "operator");
+  const compliance = page.frameLocator("#appFrame").frameLocator("#f");
+  await expect(compliance.locator("main #licenseProfile")).toBeVisible({
+    timeout: 30000,
+  });
+  await compliance
+    .getByRole("button", { name: "Inventory Ledger", exact: true })
+    .click();
+  await expect(compliance.locator("main #licenseProfile")).toBeVisible({
+    timeout: 30000,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await compliance.getByRole("button", { name: "Open user profile" }).click();
+  const box = await compliance.locator(".license-profile-menu").boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await compliance
+    .getByRole("button", { name: "Sign out", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Explore Inventory" }),
+  ).toBeVisible();
+});
+
+test("main controls stay pinned and attention precedes inventory summaries", async ({
+  page,
+}) => {
+  const app = await enter(page);
+  const attention = app.locator(".attention-section");
+  await expect(attention).toBeVisible();
+  expect(
+    await attention.evaluate((el) =>
+      Boolean(
+        el.compareDocumentPosition(document.querySelector(".cards4")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ),
+  ).toBe(true);
+  async function checkPinned(frame) {
+    const main = frame.locator("main");
+    await main.evaluate((el) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "1800px";
+      spacer.dataset.scrollProbe = "true";
+      el.appendChild(spacer);
+      el.scrollTop = 0;
+    });
+    const before = await frame.locator(".content-context-bar").boundingBox();
+    await main.evaluate((el) => {
+      el.scrollTop = 500;
+    });
+    const after = await frame.locator(".content-context-bar").boundingBox();
+    expect(Math.abs(after.y - before.y)).toBeLessThan(2);
+    await expect(
+      frame.getByRole("button", { name: "Open user profile" }),
+    ).toBeInViewport();
+    await main.evaluate((el) => {
+      el.querySelector("[data-scroll-probe]").remove();
+      el.scrollTop = 0;
+    });
+  }
+  await checkPinned(app);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await checkPinned(app);
+  await switchWorkspace(page, "operator");
+  const compliance = page.frameLocator("#appFrame").frameLocator("#f");
+  await expect(compliance.locator("main #licenseProfile")).toBeVisible({
+    timeout: 30000,
+  });
+  await checkPinned(compliance);
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await checkPinned(compliance);
+});
+
+test("compliance pagination, theme persistence and compact feedback", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() =>
+    localStorage.setItem(
+      "b300_transactions",
+      JSON.stringify(
+        Array.from({ length: 23 }, (_, i) => ({
+          id: `PAGING-${i + 1}`,
+          timestamp: "2026-09-21T10:00:00Z",
+          type: "Additions to Inventory",
+          category: "Quantity Received in Canada",
+          productType: "Dried/Fresh Cannabis",
+          quantity: 1,
+          status: "Locked",
+          user: "Demo",
+        })),
+      ),
+    ),
+  );
+  await page.getByRole("button", { name: "Explore Compliance" }).click();
+  const app = page.frameLocator("#appFrame").frameLocator("#f");
+  await app
+    .getByRole("button", { name: "Inventory Ledger", exact: true })
+    .click();
+  await expect(app.locator("tbody tr")).toHaveCount(10);
+  await app.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(app.getByText("Page 2 of 3", { exact: true })).toBeVisible();
+  await app.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(app.locator("tbody tr")).toHaveCount(3);
+  await app
+    .getByPlaceholder("Search logs, batches, products...")
+    .fill("PAGING-23");
+  await expect(app.locator("tbody tr")).toHaveCount(1);
+  await expect(app.getByText("Page 1 of 1", { exact: true })).toBeVisible();
+  await app.getByRole("button", { name: "Settings", exact: true }).click();
+  await app.getByRole("button", { name: /Ocean/ }).click();
+  await expect(app.getByRole("button", { name: /Ocean/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    app.locator(".compliance-sidebar nav .theme-primary-bg"),
+  ).toHaveCSS("color", "rgb(3, 105, 161)");
+  await page.reload();
+  await expect(
+    app.locator(".compliance-sidebar nav .theme-primary-bg"),
+  ).toHaveCSS("color", "rgb(3, 105, 161)");
+  await app.getByRole("button", { name: "DB Management", exact: true }).click();
+  await app
+    .getByRole("button", { name: "Clear All Data", exact: true })
+    .click();
+  const dialog = app.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  expect((await dialog.boundingBox()).width).toBeLessThanOrEqual(441);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("b300_transactions")).length,
+    ),
+  ).toBe(23);
+});
+
+test("Part A sample fills the report profile without inventory transactions", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore Compliance" }).click();
+  const app = page.frameLocator("#appFrame").frameLocator("#f");
+  await app
+    .getByRole("button", { name: "AI Sample Generator", exact: true })
+    .click();
+  await expect(app.getByRole("checkbox").first()).toHaveAccessibleName(
+    /Part A/,
+  );
+  await app.getByRole("checkbox", { name: /Part A/ }).check();
+  await app
+    .getByRole("button", { name: "Inject 1 Scenario", exact: true })
+    .click();
+  await app.getByRole("button", { name: "OK", exact: true }).click();
+  await app.getByRole("button", { name: /Part A · Business profile/ }).click();
+  await expect(
+    app.getByText("Demo Cannabis Company (Sample)", { exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("b300_transactions")).length,
+    ),
+  ).toBe(0);
+  await app.getByRole("button", { name: "DB Management", exact: true }).click();
+  await expect(
+    app.getByRole("button", { name: "Download CSV", exact: true }),
+  ).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(
+    app.getByRole("button", { name: "Clear All Data", exact: true }),
+  ).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+});
+
+test("unlicensed workspaces allow navigation and profile controls but block actions", async ({
+  page,
+}) => {
+  const app = await enter(page);
+  await app.getByRole("button", { name: "Open user profile" }).click();
+  await app
+    .getByRole("button", { name: "Disable free unlock", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(
+    app.getByRole("button", { name: "Receive inventory" }).first(),
+  ).toBeDisabled();
+  for (const name of [
+    "Inventory",
+    "Activity",
+    "B300 workflow",
+    "Settings & stamps",
+    "Overview",
+  ]) {
+    await app.getByRole("button", { name, exact: true }).click();
+    await expect(
+      app.getByRole("button", { name: "Open user profile" }),
+    ).toBeEnabled();
+  }
+  await switchWorkspace(page, "operator");
+  const compliance = page.frameLocator("#appFrame").frameLocator("#f");
+  // Switching does not prevent browsing when no license is installed.
+  await page.keyboard.press("Escape");
+  for (const name of [
+    "Inventory Ledger",
+    "B300 Reports",
+    "DB Management",
+    "Audit Log",
+    "Settings",
+    "Dashboard",
+  ]) {
+    await compliance.getByRole("button", { name, exact: true }).click();
+  }
+  await compliance
+    .getByRole("button", { name: "DB Management", exact: true })
+    .click();
+  await expect(
+    compliance.getByRole("button", { name: "Download CSV", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    compliance.getByRole("button", { name: "Clear All Data", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    compliance.getByRole("button", {
+      name: "AI Sample Generator",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  await compliance
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
+  await expect(
+    compliance.getByRole("button", { name: /Ocean/ }),
+  ).toBeDisabled();
+  await compliance.getByRole("button", { name: "Open user profile" }).click();
+  await compliance.locator("#switchRoleBtn").click();
+  await expect(compliance.locator("#userRole")).toContainText("Operator");
+  await compliance.getByRole("button", { name: "Open user profile" }).click();
+  await compliance.locator("#freeUnlockBtn").click();
+  await expect(compliance.getByRole("button", { name: /Ocean/ })).toBeEnabled();
+  await expect(
+    compliance.getByRole("button", {
+      name: "AI Sample Generator",
+      exact: true,
+    }),
+  ).toBeEnabled();
+});
+
+test("license surfaces use shared styling without external dependencies", async ({
+  page,
+}) => {
+  const external = [];
+  page.on("request", (r) => {
+    if (!r.url().startsWith("http://127.0.0.1:4173")) external.push(r.url());
+  });
+  const app = await enter(page);
+  await app.getByRole("button", { name: "Open user profile" }).click();
+  await app.getByRole("button", { name: "License", exact: true }).click();
+  expect(
+    (await page.locator(".license-dialog").boundingBox()).width,
+  ).toBeLessThanOrEqual(640);
+  await page.goto("/license-portal.html");
+  await expect(
+    page.getByRole("heading", { name: "License Portal", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("header")).toHaveCSS(
+    "background-color",
+    "rgb(255, 255, 255)",
+  );
+  await page.getByRole("button", { name: "Customers", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Register customer", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   expect(external).toEqual([]);
 });
