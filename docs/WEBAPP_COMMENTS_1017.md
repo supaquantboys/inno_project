@@ -6,7 +6,7 @@ Reviewed the 13 numbered items and their follow-up lines in the supplied Google 
 - Harvest and processing reductions request actual output product, quantity and destination batch in the same form. Unlike plant transfers, inputs/outputs with different units are never inferred from one quantity.
 - Stock validation uses the effective business date and checks the affected batch timeline, including later transactions. Future dates, fractional plants and overdraws are rejected. Opening inventory now has an editable or generated batch ID.
 - PI and finished production accept new destination batch IDs; defaults retain source lineage with a collision-free suffix. Each production run has a distinct batch.
-- Inventory Report supports product, date and batch filters, optional related-batch history, separate per-product/batch running balances, and CSV export. Dashboard balance links open the selected product history.
+- Inventory Report supports product, date and batch filters, optional related-batch history, both per-batch running balances and product totals across all batches (calculated before batch/date display filters), and CSV export. Dashboard balance links open the selected product history.
 - B300 Reports defaults to an A–E working view, retaining focused part selectors.
 
 Existing records are not retroactively paired: historical manual rows may already have compensating entries. Reconcile those explicitly to avoid double posting. Inventory Report labels old records without batch IDs as unassigned.
