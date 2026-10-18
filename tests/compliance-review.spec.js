@@ -192,7 +192,7 @@ test("Compliance form posts paired seed/VCP records and inventory report drills 
   ).toBeVisible();
   await expect(app.getByLabel("Report product")).toHaveValue("Viable Seeds");
   await expect(
-    app.getByRole("cell", { name: "70.000", exact: true }),
+    app.getByRole("cell", { name: "70.000", exact: true }).first(),
   ).toBeVisible();
   await app.getByRole("button", { name: "B300 Reports", exact: true }).click();
   for (const heading of [
@@ -245,14 +245,53 @@ test("Compliance rejects historical overspend and exposes editable carry-over ba
   await expect(app.getByLabel("Opening inventory batch ID")).toBeEditable();
 });
 
-test('separate PI runs consume explicit source kg and allocate distinct output batches', () => {
-  const fm = {...seed, productType:'Dried/Fresh Flowering kg',quantity:100};
-  const production = {productType:'Pure Intermediates kg',type:ADD,category:'Total Production',quantity:.5,midBatchId:'SEED-1-01',sourceBatchIds:['SEED-1'],sourceQuantities:[2],transactionDate:yesterday};
-  const first = event(production,[fm]);
-  const rows=[fm,...first];
-  const secondId=workflow.nextBatch(rows,'SEED-1','Pure Intermediates kg');
-  expect(secondId).toBe('SEED-1-02');
-  const second=event({...production,midBatchId:secondId},rows);
-  expect(workflow.balance([...rows,...second],'Dried/Fresh Flowering kg','SEED-1',yesterday)).toBe(96);
-  expect(()=>event({...production,midBatchId:'SEED-1'},[fm])).toThrow(/new destination/);
+test("separate PI runs consume explicit source kg and allocate distinct output batches", () => {
+  const fm = {
+    ...seed,
+    productType: "Dried/Fresh Flowering kg",
+    quantity: 100,
+  };
+  const production = {
+    productType: "Pure Intermediates kg",
+    type: ADD,
+    category: "Total Production",
+    quantity: 0.5,
+    midBatchId: "SEED-1-01",
+    sourceBatchIds: ["SEED-1"],
+    sourceQuantities: [2],
+    transactionDate: yesterday,
+  };
+  const first = event(production, [fm]);
+  const rows = [fm, ...first];
+  const secondId = workflow.nextBatch(rows, "SEED-1", "Pure Intermediates kg");
+  expect(secondId).toBe("SEED-1-02");
+  const second = event({ ...production, midBatchId: secondId }, rows);
+  expect(
+    workflow.balance(
+      [...rows, ...second],
+      "Dried/Fresh Flowering kg",
+      "SEED-1",
+      yesterday,
+    ),
+  ).toBe(96);
+  expect(() => event({ ...production, midBatchId: "SEED-1" }, [fm])).toThrow(
+    /new destination/,
+  );
+});
+
+test("inventory report distinguishes product running total from individual batch balance", async ({
+  page,
+}) => {
+  const app = await enterCompliance(page, [
+    seed,
+    { ...seed, id: "seed2", earlyBatchId: "SEED-2", quantity: 50 },
+  ]);
+  await app
+    .getByRole("button", { name: "Inventory Report", exact: true })
+    .click();
+  await app.getByLabel("Report product").selectOption("Viable Seeds");
+  await app.getByLabel("Report batch").selectOption("SEED-2");
+  const cells = app.locator("tbody tr").first().locator("td");
+  await expect(cells.nth(5)).toHaveText("50.000");
+  await expect(cells.nth(6)).toHaveText("150.000");
 });
