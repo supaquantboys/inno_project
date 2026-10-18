@@ -1509,6 +1509,7 @@ const { useState, useEffect, useMemo, useRef } = React;
         const App = () => {
             const [role, setRole] = useState(ROLES.ADMIN);
             const [activeTab, setActiveTab] = useState('dashboard');
+            const [inventoryProduct, setInventoryProduct] = useState('');
             const [themeKey, setThemeKey] = useState(loadSettings(SETTINGS_KEYS.THEME, DEFAULT_SETTINGS.theme));
 
             useEffect(() => {
@@ -1689,31 +1690,25 @@ const { useState, useEffect, useMemo, useRef } = React;
             };
 
             const handleSaveTransaction = (txData) => {
-                const newTx = {
-                    ...txData,
-                    id: generateLogID(),
-                    timestamp: new Date().toISOString(),
-                    user: role,
-                    status: STATUS.LOCKED,
-                    quantity: formatNumber(txData.quantity)
-                };
-                setTransactions(prev => [newTx, ...prev]);
-                addAuditRecord({
-                    module:'Inventory Ledger', action:'create', record:newTx.id,
-                    summary:`Created ${newTx.productType} · ${newTx.category}`,
-                    details:{
-                        'Transaction Type':newTx.type, 'Product Type':newTx.productType, Category:newTx.category,
-                        Quantity:newTx.quantity, 'Batch ID':getInventoryBatchId(newTx) || newTx.linkedBatchId || '(none)',
-                        'Effective Date':newTx.transactionDate || newTx.actionDate || String(newTx.timestamp).slice(0,10)
-                    }
-                });
-                setShowAddModal(false);
+                try {
+                    if (localStorage.getItem('b300_transactions') !== JSON.stringify(transactions)) throw Error('Shared data changed. Close and reopen this form before saving.');
+                    const legs = ComplianceWorkflow.validate(ComplianceWorkflow.createEvent(txData, transactions), transactions, settings.timezone);
+                    const eventId = 'CE-' + crypto.randomUUID();
+                    const records = legs.map((leg,i) => ({...leg,id:eventId+'-'+i,timestamp:new Date().toISOString(),user:role,status:STATUS.LOCKED,quantity:formatNumber(leg.quantity), ...(legs.length > 1 ? {systemGenerated:true,businessEventId:eventId,eventLabel:'Compliance production / transfer'} : {})}));
+                    setTransactions(prev => [...records,...prev]);
+                    addAuditRecord({module:'Inventory Ledger',action:'create',record:eventId,summary:`Recorded ${records.length} linked record(s)`,details:{'Effective date':txData.transactionDate,'Product':txData.productType,'Batch':ComplianceWorkflow.batch(txData)}});
+                    setShowAddModal(false);
+                    return;
+                } catch(error) { showDialog('Transaction not saved', error.message); return; }
+
+
             };
 
             const handleUpdateTransaction = (txData) => {
                 const existing = transactions.find(t => t.id === txData.id) || {};
                 if (existing.systemGenerated) { showDialog('Linked business event', 'This record is part of an inventory action and cannot be edited independently. Event reversal is not yet available in this demo.'); return; }
                 const updated = { ...existing, ...txData, status: STATUS.LOCKED, quantity: formatNumber(txData.quantity) };
+                try { const replacement = ComplianceWorkflow.createEvent(updated, transactions.filter(t=>t.id!==updated.id)); if(replacement.length>1) throw Error('Create a new linked event instead of converting an existing record.'); ComplianceWorkflow.validate(replacement,transactions.filter(t=>t.id!==updated.id),settings.timezone); } catch(error) { showDialog('Transaction not saved',error.message); return; }
                 const ignored = new Set(['timestamp']);
                 const fields = Array.from(new Set([...Object.keys(existing), ...Object.keys(updated)])).filter(k => !ignored.has(k));
                 const changes = fields.filter(k => JSON.stringify(existing[k]) !== JSON.stringify(updated[k])).map(k => ({
@@ -1773,6 +1768,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                             <button data-license-navigation="true" onClick={() => setActiveTab('ledger')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'ledger' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.FileText /> <span>Inventory Ledger</span>
                             </button>
+                            <button data-license-navigation="true" onClick={() => {setInventoryProduct('');setActiveTab('inventory-report');}} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab==='inventory-report'?'theme-primary-bg':''}`}><Icons.FileText/><span>Inventory Report</span></button>
                             <button data-license-navigation="true" onClick={() => setActiveTab('reports')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'reports' ? 'theme-primary-bg' : 'hover:bg-slate-800'}`}>
                                 <Icons.Download /> <span>B300 Reports</span>
                             </button>
@@ -1826,7 +1822,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                         </header>
 
                         <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 hide-scrollbar min-w-0">
-                            {activeTab === 'dashboard' && <DashboardTab transactions={transactions} />}
+                            {activeTab === 'dashboard' && <DashboardTab transactions={transactions} onInspect={product=>{setInventoryProduct(product);setActiveTab('inventory-report');}} />}
                             {activeTab === 'ledger' && <LedgerTab
                                 transactions={transactions}
                                 role={role}
@@ -1836,6 +1832,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                 onEdit={(tx) => { setEditingTx(tx); setShowEditModal(true); }}
                                 onView={(tx) => { setViewingTx(tx); setShowViewModal(true); }}
                             />}
+                            {activeTab === 'inventory-report' && <InventoryReportTab transactions={transactions} initialProduct={inventoryProduct}/> }
                             {activeTab === 'reports' && <ReportsTab transactions={transactions} settings={settings} showDialog={showDialog} />}
                             {activeTab === 'database' && <DatabaseTab transactions={transactions} setTransactions={setTransactions} showDialog={showDialog} onAudit={addAuditRecord} />}
                             {activeTab === 'audit' && <AuditLogTab auditLogs={auditLogs} locale={settings.language || 'en-CA'} />}
@@ -1902,7 +1899,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             </div>
         );
 
-        const DashboardTab = ({ transactions }) => {
+        const DashboardTab = ({ transactions, onInspect }) => {
             const totalAdditions = transactions.filter(t => t.type === TRANSACTION_TYPES.ADDITION).length;
             const totalReductions = transactions.filter(t => t.type === TRANSACTION_TYPES.REDUCTION).length;
             const pendingEdits = transactions.filter(t => t.status === STATUS.PENDING).length;
@@ -1950,7 +1947,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                             <tr key={pt} className="border-b last:border-0 hover:bg-gray-50">
                                                 <td className="p-3 text-gray-800">{pt}</td>
                                                 <td className="p-3 text-xs text-gray-500">{formatNumber(opening)} (Open) + {formatNumber(additions)} (Add) - {formatNumber(reductions)} (Red) {adjustments !== 0 ? `+ ${formatNumber(adjustments)} (Adj)` : ''}</td>
-                                                <td className="p-3 text-right font-semibold theme-primary-text">{formatNumber(balance)}</td>
+                                                <td className="p-3 text-right font-semibold theme-primary-text"><button data-license-navigation="true" className="underline" onClick={()=>onInspect(pt)} aria-label={"Inspect "+pt}>{formatNumber(balance)}</button></td>
                                             </tr>
                                         )
                                     })}
@@ -1960,6 +1957,31 @@ const { useState, useEffect, useMemo, useRef } = React;
                     </div>
                 </div>
             );
+        };
+
+        const InventoryReportTab = ({transactions,initialProduct=''}) => {
+            const [product,setProduct]=useState(initialProduct);
+            const [batchId,setBatch]=useState('');
+            const [start,setStart]=useState('');
+            const [end,setEnd]=useState('');
+            const [trace,setTrace]=useState(false);
+            const ids=[...new Set(transactions.map(ComplianceWorkflow.batch).filter(Boolean))].sort();
+            const linkedIds=new Set(batchId?[batchId]:[]);
+            if(trace&&batchId) { let changed=true; while(changed){ changed=false; transactions.forEach(t=>{const related=[ComplianceWorkflow.batch(t),t.linkedBatchId,...(t.sourceBatchIds||[])].filter(Boolean);if(related.some(id=>linkedIds.has(id)))related.forEach(id=>{if(!linkedIds.has(id)){linkedIds.add(id);changed=true;}});});} }
+            const matches=t=>!t.recordType&&(!product||t.productType===product)&&(!batchId||(trace?linkedIds.has(ComplianceWorkflow.batch(t)):ComplianceWorkflow.batch(t)===batchId));
+            const running=new Map();
+            const rows=transactions.filter(matches).slice().sort((a,b)=>ComplianceWorkflow.day(a).localeCompare(ComplianceWorkflow.day(b))||String(a.timestamp).localeCompare(String(b.timestamp))).map(t=>{const key=t.productType+'|'+ComplianceWorkflow.batch(t);const value=(running.get(key)||0)+ComplianceWorkflow.delta(t);running.set(key,value);return {...t,runningBalance:value};}).filter(t=>(!start||ComplianceWorkflow.day(t)>=start)&&(!end||ComplianceWorkflow.day(t)<=end));
+            const exportCsv=()=>{const values=[['Date','Product','Batch','Category','Change','Running balance'],...rows.map(t=>[ComplianceWorkflow.day(t),t.productType,ComplianceWorkflow.batch(t),t.category,ComplianceWorkflow.delta(t),t.runningBalance])];const content=values.map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));const a=document.createElement('a');a.href=url;a.download='Inventory_Report.csv';a.click();URL.revokeObjectURL(url);};
+            return <div className="space-y-6"><PageHeader title="Inventory Report" subtitle="Review product and batch history. Running balances include transactions before the start date and remain separate for each product and batch." action={<button className="px-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm font-semibold" onClick={exportCsv}>Export inventory CSV</button>}/>
+                <div className="bg-white border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="text-sm">Product<select data-license-navigation="true" aria-label="Report product" className="w-full border rounded-lg p-2" value={product} onChange={e=>setProduct(e.target.value)}><option value="">All products</option>{PRODUCT_TYPES.map(p=><option key={p}>{p}</option>)}</select></label>
+                    <label className="text-sm">Batch<select data-license-navigation="true" aria-label="Report batch" className="w-full border rounded-lg p-2" value={batchId} onChange={e=>setBatch(e.target.value)}><option value="">All batches</option>{ids.map(id=><option key={id}>{id}</option>)}</select></label>
+                    <label className="text-sm">From<input data-license-navigation="true" aria-label="Report from" type="date" value={start} onChange={e=>setStart(e.target.value)} className="w-full border rounded-lg p-2"/></label>
+                    <label className="text-sm">To<input data-license-navigation="true" aria-label="Report to" type="date" value={end} onChange={e=>setEnd(e.target.value)} className="w-full border rounded-lg p-2"/></label>
+                    <label className="text-sm"><input data-license-navigation="true" type="checkbox" checked={trace} onChange={e=>setTrace(e.target.checked)}/> Include related batches (clear product filter to see all stages)</label>
+                </div>
+                {start&&end&&start>end?<p role="alert">Start date must be before end date.</p>:<div className="bg-white border rounded-xl overflow-hidden"><PaginatedTable className="w-full min-w-[900px] text-left"><thead><tr>{['Date','Product / unit','Batch','Category','Change','Running balance'].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{rows.length?rows.map(t=><tr key={t.id} className="border-t"><td className="p-3">{ComplianceWorkflow.day(t)}</td><td className="p-3">{t.productType}</td><td className="p-3">{ComplianceWorkflow.batch(t)||'Unassigned legacy record'}</td><td className="p-3">{t.category}</td><td className="p-3">{formatNumber(ComplianceWorkflow.delta(t))}</td><td className="p-3">{formatNumber(t.runningBalance)}</td></tr>):<tr><td colSpan={6} className="p-4">No transactions found.</td></tr>}</tbody></PaginatedTable></div>}
+            </div>;
         };
 
         const LedgerTab = ({ transactions, role, onAdd, onRequestEdit, onApproveEdit, onEdit, onView }) => {
@@ -2180,7 +2202,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             const [periodStart, setPeriodStart] = useState(dateKey(currentMonthStart));
             const [periodEnd, setPeriodEnd] = useState(dateKey(currentMonthEnd));
             const [isExporting, setIsExporting] = useState(false);
-            const [activePart, setActivePart] = useState('B');
+            const [activePart, setActivePart] = useState('ALL');
             const [activeSalesProduct, setActiveSalesProduct] = useState(B300_PART_E_PRODUCTS[0]);
 
             const report = useMemo(() => buildB300UnpackagedReport(transactions, periodStart, periodEnd), [transactions, periodStart, periodEnd]);
@@ -2276,6 +2298,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             };
 
             const partTabs=[
+                {key:'ALL',label:'All parts · A–E',sub:'Complete working view',count:'5'},
                 {key:'A',label:'Part A · Business profile',sub:'Page 1',count:businessMissing.length ? 'Incomplete' : 'Ready'},
                 {key:'B',label:'Part B · Unpackaged',sub:'Pages 2-3',count:report.inPeriod.length},
                 {key:'C',label:'Part C · Packaged',sub:'Page 4',count:partC.sourceCount},
@@ -2289,18 +2312,18 @@ const { useState, useEffect, useMemo, useRef } = React;
                 <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_.8fr] gap-5"><div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6"><h2 className="text-lg font-bold text-gray-900">Reporting Period</h2><p className="text-sm text-gray-500 mt-1">All B300 parts use the same reporting period so inventory, stamps, sales and duties reconcile as one return.</p><div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5"><div><label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period Start</label><input type="date" value={periodStart} onChange={e=>setPeriodStart(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white"/></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period End</label><input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} className="w-full border rounded-lg p-2.5 text-sm bg-white"/></div></div></div>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-gray-900">Audit Readiness</h2><p className="text-sm text-gray-500 mt-1">Cross-part data checks before PDF export.</p></div><span className={`text-xs font-bold px-2.5 py-1 rounded-full ${report.invalidTransactions.length===0&&report.negativeClosing.length===0?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700'}`}>{report.invalidTransactions.length===0&&report.negativeClosing.length===0?'PASS':'REVIEW'}</span></div><div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-lg bg-gray-50 border p-3"><div className="text-2xl font-bold text-gray-900">{report.coverageCovered}/{report.coverageTotal}</div><div className="text-xs text-gray-500 mt-1">Part B matrix coverage</div></div><div className="rounded-lg bg-gray-50 border p-3"><div className="text-2xl font-bold text-gray-900">{partC.sourceCount+partD.sourceCount+partE.sourceCount}</div><div className="text-xs text-gray-500 mt-1">Part C-E supplemental records</div></div></div><div className="mt-4 space-y-2 text-sm"><div className={report.invalidTransactions.length?'text-red-700':'text-emerald-700'}>• {report.invalidTransactions.length} invalid Part B N/A record(s)</div><div className={report.negativeClosing.length?'text-red-700':'text-emerald-700'}>• {report.negativeClosing.length} negative Part B closing balance(s)</div><div className={businessMissing.length?'text-amber-700':'text-emerald-700'}>• {businessMissing.length} missing CRA business profile field(s)</div></div></div></div>
 
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2"><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2">{partTabs.map(tab=><button data-license-navigation="true" key={tab.key} aria-pressed={activePart===tab.key} onClick={()=>setActivePart(tab.key)} className={`rounded-xl px-4 py-3 text-left border transition-all ${activePart===tab.key?'theme-soft-bg theme-soft-border shadow-sm':'bg-white border-transparent hover:bg-gray-50'}`}><div className="flex items-center justify-between gap-3"><span className={`text-sm font-bold ${activePart===tab.key?'theme-primary-text':'text-gray-800'}`}>{tab.label}</span><span className="text-[11px] rounded-full bg-gray-100 text-gray-500 px-2 py-0.5">{tab.count}</span></div><div className="text-xs text-gray-500 mt-1">{tab.sub}</div></button>)}</div></div>
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2"><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">{partTabs.map(tab=><button data-license-navigation="true" key={tab.key} aria-pressed={activePart===tab.key} onClick={()=>setActivePart(tab.key)} className={`rounded-xl px-4 py-3 text-left border transition-all ${activePart===tab.key?'theme-soft-bg theme-soft-border shadow-sm':'bg-white border-transparent hover:bg-gray-50'}`}><div className="flex items-center justify-between gap-3"><span className={`text-sm font-bold ${activePart===tab.key?'theme-primary-text':'text-gray-800'}`}>{tab.label}</span><span className="text-[11px] rounded-full bg-gray-100 text-gray-500 px-2 py-0.5">{tab.count}</span></div><div className="text-xs text-gray-500 mt-1">{tab.sub}</div></button>)}</div></div>
 
-                {activePart==='A' && <section className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
+                {(activePart==='ALL'||activePart==='A') && <section className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                     <h3>Part A · Business information</h3><p className="text-sm text-gray-500 mt-2">Current business profile from Settings. The reporting dates below follow your selected period. Sample values are for demonstration only.</p>
                     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-5">{[
                         ['Legal name',settings.craLegalName],['Business number',settings.craBusinessNumber],['RD program',settings.craRdProgram],['Return type',settings.craReturnType],['Physical address',settings.craAddress],['City',settings.craCity],['Province / territory',settings.craProvince],['Postal code',settings.craPostalCode],['Reporting period start',periodStart],['Reporting period end',periodEnd]
                     ].map(([label,value])=><div key={label}><dt className="text-xs text-gray-500">{label}</dt><dd className="text-sm font-medium mt-1">{value || 'Not configured'}</dd></div>)}</dl>
                 </section>}
-                {activePart==='B' && <div className="space-y-6">{(businessMissing.length>0||report.dateFallbackCount>0||report.missingCoverage.length>0)&&<details className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-5"><summary className="cursor-pointer font-semibold text-amber-900">Part B coverage & data-quality notes</summary><div className="mt-3 text-sm text-amber-900/90 space-y-3">{businessMissing.length>0&&<p><strong>CRA business profile:</strong> configure {businessMissing.map(([l])=>l).join(', ')} in Settings.</p>}{report.dateFallbackCount>0&&<p><strong>Legacy date fallback:</strong> {report.dateFallbackCount} record(s) use an action date or timestamp fallback.</p>}{report.missingCoverage.length>0&&<p><strong>Sample coverage gaps:</strong> {report.missingCoverage.length} valid Part B cells have no source record in this period.</p>}</div></details>}<B300Table products={B300_PAGE_2_PRODUCTS} pageNumber={2}/><B300Table products={B300_PAGE_3_PRODUCTS} pageNumber={3}/></div>}
-                {activePart==='C' && <div className="space-y-4">{partC.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No Part C source records yet.</strong> Part C uses packaged-product records rather than the unpackaged ledger. Generate the CRA Parts C/D/E Coverage Pack to preview a populated report.</div>}<PartCTable/></div>}
-                {activePart==='D' && <div className="space-y-4">{partD.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No excise-stamp records yet.</strong> Part D is jurisdiction-based and is intentionally separated from cannabis batch inventory.</div>}<PartDTable/></div>}
-                {activePart==='E' && <div className="space-y-4">{partE.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No Part E sales/duty records yet.</strong> This section requires province/territory sales, package counts and duty values that are not present in normal Part B inventory transactions.</div>}<PartETable/></div>}
+                {(activePart==='ALL'||activePart==='B') && <div className="space-y-6">{(businessMissing.length>0||report.dateFallbackCount>0||report.missingCoverage.length>0)&&<details className="bg-amber-50 border border-amber-200 rounded-xl p-4 sm:p-5"><summary className="cursor-pointer font-semibold text-amber-900">Part B coverage & data-quality notes</summary><div className="mt-3 text-sm text-amber-900/90 space-y-3">{businessMissing.length>0&&<p><strong>CRA business profile:</strong> configure {businessMissing.map(([l])=>l).join(', ')} in Settings.</p>}{report.dateFallbackCount>0&&<p><strong>Legacy date fallback:</strong> {report.dateFallbackCount} record(s) use an action date or timestamp fallback.</p>}{report.missingCoverage.length>0&&<p><strong>Sample coverage gaps:</strong> {report.missingCoverage.length} valid Part B cells have no source record in this period.</p>}</div></details>}<B300Table products={B300_PAGE_2_PRODUCTS} pageNumber={2}/><B300Table products={B300_PAGE_3_PRODUCTS} pageNumber={3}/></div>}
+                {(activePart==='ALL'||activePart==='C') && <div className="space-y-4">{partC.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No Part C source records yet.</strong> Part C uses packaged-product records rather than the unpackaged ledger. Generate the CRA Parts C/D/E Coverage Pack to preview a populated report.</div>}<PartCTable/></div>}
+                {(activePart==='ALL'||activePart==='D') && <div className="space-y-4">{partD.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No excise-stamp records yet.</strong> Part D is jurisdiction-based and is intentionally separated from cannabis batch inventory.</div>}<PartDTable/></div>}
+                {(activePart==='ALL'||activePart==='E') && <div className="space-y-4">{partE.sourceCount===0&&<div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong>No Part E sales/duty records yet.</strong> This section requires province/territory sales, package counts and duty values that are not present in normal Part B inventory transactions.</div>}<PartETable/></div>}
 
                 <div className="bg-slate-900 text-slate-100 rounded-xl p-4 sm:p-5 text-sm leading-6"><strong>Before filing:</strong> Review every part of the return. If the embedded CRA template cannot be filled, export produces a clearly labelled Part B working copy only. Part F certification and filing remain separate steps. <a href="https://www.canada.ca/en/revenue-agency/services/forms-publications/forms/b300.html" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Open the official CRA B300 form ↗</a></div>
             </div>;
@@ -3382,21 +3405,23 @@ const { useState, useEffect, useMemo, useRef } = React;
             const [otherConfirmed, setOtherConfirmed] = useState(editData?.category === 'Other');
             const [confirmAdjustment, setConfirmAdjustment] = useState(false);
             const [adjustmentConfirmed, setAdjustmentConfirmed] = useState(editData?.type === TRANSACTION_TYPES.ADJUSTMENT);
+            const [formError, setFormError] = useState('');
+            const asOfTransactions = transactions.filter(tx => ComplianceWorkflow.day(tx) <= formData.transactionDate && (!isEdit || tx.id !== editData.id));
             const [selectedSupplierProfile, setSelectedSupplierProfile] = useState('');
             const [selectedCustomerProfile, setSelectedCustomerProfile] = useState('');
 
             // Only batches with a positive balance in the relevant product inventory are selectable.
-            const seedEarlyBatches = useMemo(() => getInStockBatchIds(transactions, 'Viable Seeds'), [transactions]);
-            const vcpEarlyBatches = useMemo(() => getInStockBatchIds(transactions, 'Vegetative Plants'), [transactions]);
-            const wcpEarlyBatches = useMemo(() => getInStockBatchIds(transactions, 'Whole Plants'), [transactions]);
-            const harvestedEarlyBatches = useMemo(() => getInStockBatchIds(transactions, ['Dried/Fresh Flowering kg','Dried/Fresh Non-flowering kg']), [transactions]);
-            const piMidBatches = useMemo(() => getInStockBatchIds(transactions, 'Pure Intermediates kg'), [transactions]);
+            const seedEarlyBatches = useMemo(() => getInStockBatchIds(asOfTransactions, 'Viable Seeds'), [transactions, formData.transactionDate]);
+            const vcpEarlyBatches = useMemo(() => getInStockBatchIds(asOfTransactions, 'Vegetative Plants'), [transactions, formData.transactionDate]);
+            const wcpEarlyBatches = useMemo(() => getInStockBatchIds(asOfTransactions, 'Whole Plants'), [transactions, formData.transactionDate]);
+            const harvestedEarlyBatches = useMemo(() => getInStockBatchIds(asOfTransactions, ['Dried/Fresh Flowering kg','Dried/Fresh Non-flowering kg']), [transactions, formData.transactionDate]);
+            const piMidBatches = useMemo(() => getInStockBatchIds(asOfTransactions, 'Pure Intermediates kg'), [transactions, formData.transactionDate]);
             const currentProductBatches = useMemo(() => {
                 if (!formData.productType) return [];
-                const ids = getInStockBatchIds(transactions, formData.productType);
+                const ids = getInStockBatchIds(asOfTransactions, formData.productType);
                 if (isEdit && editData?.productType === formData.productType && editData?.linkedBatchId && !ids.includes(editData.linkedBatchId)) ids.push(editData.linkedBatchId);
                 return ids.sort();
-            }, [transactions, formData.productType, isEdit, editData]);
+            }, [transactions, formData.productType, formData.transactionDate, isEdit, editData]);
             const availableAllBatches = useMemo(() => {
                 const balances = buildBatchInventory(transactions);
                 return [...new Set(Object.values(balances).flatMap(product => Object.entries(product).filter(([,qty]) => qty > 0.0000001).map(([id]) => id)))].sort();
@@ -3438,6 +3463,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             // all reductions -> in-stock batch for the selected product type.
             const applyBatchDefaults = (nextProductType, nextType, nextCategory, base = {}) => {
                 const updates = { ...base };
+                if (nextType === TRANSACTION_TYPES.OPENING) return {...updates, earlyBatchId: EARLY_BATCH_PRODUCTS.includes(nextProductType) ? newEarlyBatchId() : '', midBatchId:nextProductType === 'Pure Intermediates kg' ? newMidBatchId() : '', lateBatchId:FINISHED_BATCH_PRODUCTS.includes(nextProductType) ? newLateBatchId() : ''};
                 if (nextType !== TRANSACTION_TYPES.ADDITION) {
                     if (nextType === TRANSACTION_TYPES.REDUCTION) {
                         updates.earlyBatchId = '';
@@ -3515,11 +3541,13 @@ const { useState, useEffect, useMemo, useRef } = React;
                     const compact = sourceBatchIds.filter(Boolean);
                     const next = { ...prev, sourceBatchIds };
                     if (prev.productType === 'Pure Intermediates kg') {
-                        next.midBatchId = compact.length === 0 ? '' : compact.length === 1 ? compact[0] : (String(prev.midBatchId || '').startsWith('MB-') ? prev.midBatchId : newMidBatchId());
+                        next.midBatchId = compact.length === 0 ? '' : ComplianceWorkflow.nextBatch(transactions, compact[0], prev.productType);
                         next.linkedBatchId = compact.length === 1 ? compact[0] : '';
+                        next.sourceQuantities = []; next.sourceProducts = [];
                     } else if (FINISHED_BATCH_PRODUCTS.includes(prev.productType)) {
-                        next.lateBatchId = compact.length === 0 ? '' : compact.length === 1 ? compact[0] : (String(prev.lateBatchId || '').startsWith('LB-') ? prev.lateBatchId : newLateBatchId());
+                        next.lateBatchId = compact.length === 0 ? '' : ComplianceWorkflow.nextBatch(transactions, compact[0], prev.productType);
                         next.linkedBatchId = compact.length === 1 ? compact[0] : '';
+                        next.sourceQuantities = []; next.sourceProducts = [];
                     }
                     return next;
                 });
@@ -3530,8 +3558,8 @@ const { useState, useEffect, useMemo, useRef } = React;
                 const sourceBatchIds = (Array.isArray(prev.sourceBatchIds) ? prev.sourceBatchIds : []).filter((_,i) => i !== index);
                 const compact = sourceBatchIds.filter(Boolean);
                 const next = {...prev, sourceBatchIds};
-                if (prev.productType === 'Pure Intermediates kg') next.midBatchId = compact.length === 0 ? '' : compact.length === 1 ? compact[0] : newMidBatchId();
-                if (FINISHED_BATCH_PRODUCTS.includes(prev.productType)) next.lateBatchId = compact.length === 0 ? '' : compact.length === 1 ? compact[0] : newLateBatchId();
+                if (prev.productType === 'Pure Intermediates kg') next.midBatchId = compact.length === 0 ? '' : ComplianceWorkflow.nextBatch(transactions, compact[0], prev.productType);
+                if (FINISHED_BATCH_PRODUCTS.includes(prev.productType)) next.lateBatchId = compact.length === 0 ? '' : ComplianceWorkflow.nextBatch(transactions, compact[0], prev.productType);
                 return next;
             });
 
@@ -3545,6 +3573,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                 if (formData.type === TRANSACTION_TYPES.ADDITION && formData.category === 'Total Production' && formData.productType === 'Pure Intermediates kg' && !(formData.sourceBatchIds || []).filter(Boolean).length) return;
                 if (formData.type === TRANSACTION_TYPES.ADDITION && formData.category === 'Total Production' && FINISHED_BATCH_PRODUCTS.includes(formData.productType) && !(formData.sourceBatchIds || []).filter(Boolean).length) return;
 
+                try { const rows = transactions.filter(t => !isEdit || t.id !== editData.id); ComplianceWorkflow.validate(ComplianceWorkflow.createEvent(formData,rows),rows,settings.timezone); setFormError(''); } catch(error) { setFormError(error.message); return; }
                 const contact = { companyName:formData.companyName, contactName:formData.contactName, phone:formData.phone, address:formData.address, craLicense:formData.craLicense, hcLicense:formData.hcLicense, defaultShippingDoc:formData.shippingDoc || '' };
                 if (showSupplierInfo && contact.companyName && !(settings.suppliers || []).some(item => partyKey(item) === partyKey(contact))) onAddSetting('suppliers', contact);
                 if (showCustomerInfo && contact.companyName && !(settings.customers || []).some(item => partyKey(item) === partyKey(contact))) onAddSetting('customers', contact);
@@ -3712,6 +3741,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 
                         <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar">
                             <form id="txForm" onSubmit={handleSubmit} className="space-y-6">
+                                {formError && <p role="alert" className="text-red-700 bg-red-50 border rounded-lg p-3">{formError}</p>}
 
                                 {/* 1. Product Type */}
                                 <div className="relative">
@@ -3857,11 +3887,11 @@ const { useState, useEffect, useMemo, useRef } = React;
                                                     ))}
                                                     <button type="button" onClick={addSourceBatchRow} className="text-sm font-semibold theme-primary-text hover:underline">+ Add another Early Batch ID</button>
                                                 </div>
-                                                <div><label className="block text-sm font-medium text-blue-800 mb-1">Mid Batch ID</label><input readOnly value={formData.midBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /><p className="text-xs text-blue-700 mt-1.5">One source: its Early Batch ID is promoted to the Mid stage. Multiple sources: a new Mid Batch ID is generated.</p></div>
+                                                <div><label className="block text-sm font-medium text-blue-800 mb-1">Mid Batch ID</label><input aria-label="Mid Batch ID" name="midBatchId" onChange={handleChange} value={formData.midBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /><p className="text-xs text-blue-700 mt-1.5">Each production run receives a new Mid Batch ID. Edit the suggested suffix if needed.</p></div>
                                             </div>
                                         )}
                                         {formData.productType === 'Pure Intermediates kg' && formData.category !== 'Total Production' && (
-                                            <div><label className="block text-sm font-medium text-blue-800 mb-1">Mid Batch ID (auto-generated)</label><input readOnly value={formData.midBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /></div>
+                                            <div><label className="block text-sm font-medium text-blue-800 mb-1">Mid Batch ID (auto-generated)</label><input aria-label="Mid Batch ID" name="midBatchId" onChange={handleChange} value={formData.midBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /></div>
                                         )}
 
                                         {FINISHED_BATCH_PRODUCTS.includes(formData.productType) && formData.category === 'Total Production' && (
@@ -3879,11 +3909,11 @@ const { useState, useEffect, useMemo, useRef } = React;
                                                     ))}
                                                     <button type="button" onClick={addSourceBatchRow} className="text-sm font-semibold theme-primary-text hover:underline">+ Add another Mid Batch ID</button>
                                                 </div>
-                                                <div><label className="block text-sm font-medium text-blue-800 mb-1">Late Batch ID</label><input readOnly value={formData.lateBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /><p className="text-xs text-blue-700 mt-1.5">One source: its Mid Batch ID is promoted to the Late stage. Multiple sources: a new Late Batch ID is generated.</p></div>
+                                                <div><label className="block text-sm font-medium text-blue-800 mb-1">Late Batch ID</label><input aria-label="Late Batch ID" name="lateBatchId" onChange={handleChange} value={formData.lateBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /><p className="text-xs text-blue-700 mt-1.5">Each finished production run receives a new, editable Late Batch ID.</p></div>
                                             </div>
                                         )}
                                         {FINISHED_BATCH_PRODUCTS.includes(formData.productType) && formData.category !== 'Total Production' && (
-                                            <div><label className="block text-sm font-medium text-blue-800 mb-1">Late Batch ID (auto-generated)</label><input readOnly value={formData.lateBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /></div>
+                                            <div><label className="block text-sm font-medium text-blue-800 mb-1">Late Batch ID (auto-generated)</label><input aria-label="Late Batch ID" name="lateBatchId" onChange={handleChange} value={formData.lateBatchId || ''} className="w-full border rounded-lg p-2.5 bg-white/70 font-mono text-sm" /></div>
                                         )}
                                     </div>
                                 )}
@@ -3899,10 +3929,25 @@ const { useState, useEffect, useMemo, useRef } = React;
                                     </div>
                                 )}
 
+                                {formData.type === TRANSACTION_TYPES.OPENING && <label className="block text-sm">Opening inventory batch ID<input required aria-label="Opening inventory batch ID" className="w-full border rounded-lg p-2.5 mt-1" value={ComplianceWorkflow.batch(formData)} onChange={e => setFormData(prev=>({...prev,[EARLY_BATCH_PRODUCTS.includes(prev.productType)?'earlyBatchId':prev.productType==='Pure Intermediates kg'?'midBatchId':'lateBatchId']:e.target.value}))}/><span className="text-xs text-gray-500">Enter the original carry-over batch or keep the generated ID.</span></label>}
+                                {formData.type === TRANSACTION_TYPES.REDUCTION && formData.linkedBatchId && <p role="status" className="rounded-lg border p-3 text-sm">Available on {formData.transactionDate}: <b>{formatNumber(ComplianceWorkflow.balance(asOfTransactions,formData.productType,formData.linkedBatchId,formData.transactionDate))}</b> · {formData.productType}</p>}
+                                {formData.type === TRANSACTION_TYPES.ADDITION && formData.category === 'Total Production' && ['Dried/Fresh Flowering kg','Dried/Fresh Non-flowering kg'].includes(formData.productType) && <label className="block text-sm">Plants harvested<input required aria-label="Plants harvested" type="number" min="1" step="1" name="sourceQuantity" value={formData.sourceQuantity||''} onChange={handleChange} className="w-full border rounded-lg p-2.5"/></label>}
+                                {formData.type === TRANSACTION_TYPES.ADDITION && formData.category === 'Total Production' && (formData.productType==='Pure Intermediates kg'||FINISHED_BATCH_PRODUCTS.includes(formData.productType)) && (formData.sourceBatchIds||[]).filter(Boolean).map((id,i)=><div key={id} className="rounded-lg border p-3 space-y-2">
+                                    <p className="text-sm font-semibold">Input consumed · {id}</p>
+                                    {formData.productType==='Pure Intermediates kg' && <select aria-label={'Source product '+(i+1)} value={formData.sourceProducts?.[i]||'Dried/Fresh Flowering kg'} onChange={e=>{const value=e.target.value;setFormData(prev=>{const sourceProducts=[...(prev.sourceProducts||[])];sourceProducts[i]=value;return {...prev,sourceProducts};});}} className="w-full border rounded-lg p-2"><option>Dried/Fresh Flowering kg</option><option>Dried/Fresh Non-flowering kg</option></select>}
+                                    <p className="text-xs text-gray-500">Available: {formatNumber(ComplianceWorkflow.balance(asOfTransactions,formData.productType==='Pure Intermediates kg'?(formData.sourceProducts?.[i]||'Dried/Fresh Flowering kg'):'Pure Intermediates kg',id,formData.transactionDate))} kg</p>
+                                    <input required type="number" min="0.001" step="0.001" aria-label={'Input consumed kg '+(i+1)} value={formData.sourceQuantities?.[i]||''} onChange={e=>{const value=e.target.value;setFormData(prev=>{const sourceQuantities=[...(prev.sourceQuantities||[])];sourceQuantities[i]=value;return {...prev,sourceQuantities};});}} className="w-full border rounded-lg p-2"/>
+                                </div>)}
+                                {formData.type === TRANSACTION_TYPES.REDUCTION && ((formData.productType==='Whole Plants'&&formData.category==='Plant Harvested')||(['Dried/Fresh Flowering kg','Dried/Fresh Non-flowering kg','Pure Intermediates kg'].includes(formData.productType)&&formData.category==='Quantity Taken for Further Processing or Planted')) && <section className="rounded-xl border p-4 space-y-3">
+                                    <h3>Production output</h3><p className="text-sm text-gray-500">Record the actual yield to save the input and output together. Plants, kg and mg THC are entered separately.</p>
+                                    <select required aria-label="Produced product" value={formData.outputProduct||''} onChange={e=>{const outputProduct=e.target.value;setFormData(prev=>({...prev,outputProduct,outputBatchId:ComplianceWorkflow.nextBatch(transactions,prev.linkedBatchId,outputProduct)}));}} className="w-full border rounded-lg p-2"><option value="">Select produced product...</option>{(formData.productType==='Whole Plants'?['Dried/Fresh Flowering kg','Dried/Fresh Non-flowering kg']:formData.productType==='Pure Intermediates kg'?FINISHED_BATCH_PRODUCTS:['Pure Intermediates kg']).map(p=><option key={p}>{p}</option>)}</select>
+                                    <label className="block text-sm">Output batch ID<input required aria-label="Output batch ID" name="outputBatchId" value={formData.outputBatchId||''} onChange={handleChange} className="w-full border rounded-lg p-2"/></label>
+                                    <label className="block text-sm">Produced quantity ({formData.outputProduct?.includes('mg THC')?'mg THC':'kg'})<input required aria-label="Produced quantity" type="number" min="0.001" step="0.001" name="outputQuantity" value={formData.outputQuantity||''} onChange={handleChange} className="w-full border rounded-lg p-2"/></label>
+                                </section>}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Transaction / Effective Date <span className="text-red-500">*</span></label>
-                                        <input required type="date" name="transactionDate" value={formData.transactionDate || (formData.timestamp ? String(formData.timestamp).slice(0,10) : '')} onChange={handleChange} className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white" />
+                                        <input required type="date" max={ComplianceWorkflow.today(settings.timezone)} name="transactionDate" value={formData.transactionDate || (formData.timestamp ? String(formData.timestamp).slice(0,10) : '')} onChange={handleChange} className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white" />
                                         <p className="text-xs text-gray-500 mt-1.5 leading-5">Used to place the transaction in the correct B300 monthly reporting period.</p>
                                     </div>
                                     <div>
@@ -3924,7 +3969,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Company Name <span className="text-red-500">*</span></label><input required type="text" name="companyName" value={formData.companyName} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Contact Name <span className="text-red-500">*</span></label><input required type="text" name="contactName" value={formData.contactName} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-red-500">*</span></label><input required type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Receiving Date <span className="text-red-500">*</span></label><input required type="date" name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Receiving Date <span className="text-red-500">*</span></label><input required type="date" max={ComplianceWorkflow.today(settings.timezone)} name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
                                             <div className="col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-red-500">*</span></label><input required type="text" name="address" value={formData.address} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">CRA License # <span className="text-red-500">*</span></label><input required type="text" name="craLicense" value={formData.craLicense} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">HC License # <span className="text-red-500">*</span></label><input required type="text" name="hcLicense" value={formData.hcLicense} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>{(formData.category === 'Quantity Imported into Canada' || formData.category === 'Quantity Exported Outside Canada') && (
@@ -3960,7 +4005,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Company Name <span className="text-red-500">*</span></label><input required type="text" name="companyName" value={formData.companyName} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Contact Name <span className="text-red-500">*</span></label><input required type="text" name="contactName" value={formData.contactName} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">Phone <span className="text-red-500">*</span></label><input required type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Shipping Date <span className="text-red-500">*</span></label><input required type="date" name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Shipping Date <span className="text-red-500">*</span></label><input required type="date" max={ComplianceWorkflow.today(settings.timezone)} name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
                                             <div className="col-span-2"><label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-red-500">*</span></label><input required type="text" name="address" value={formData.address} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">CRA License # <span className="text-red-500">*</span></label><input required type="text" name="craLicense" value={formData.craLicense} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>
                                             <div><label className="block text-sm font-medium text-gray-700 mb-1">HC License # <span className="text-red-500">*</span></label><input required type="text" name="hcLicense" value={formData.hcLicense} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none" /></div>{(formData.category === 'Quantity Imported into Canada' || formData.category === 'Quantity Exported Outside Canada') && (
@@ -4027,7 +4072,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                                     {availableAllBatches.map(id => <option key={id} value={id}>{id}</option>)}
                                                 </select>
                                             </div>
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Retention Date <span className="text-red-500">*</span></label><input required type="date" name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Retention Date <span className="text-red-500">*</span></label><input required type="date" max={ComplianceWorkflow.today(settings.timezone)} name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
                                             <div className="col-span-2">
                                                 <DynamicSelect label="Secure Storage Location" name="location" options={settings.locations} settingKey="locations" required={true} />
                                             </div>
@@ -4041,7 +4086,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                                     <div className="bg-red-50 p-4 rounded-lg border border-red-100 space-y-4">
                                         <h3 className="font-semibold text-red-800 border-b border-red-200 pb-2">Destruction Record</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Destruction Date <span className="text-red-500">*</span></label><input required type="date" name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-1">Destruction Date <span className="text-red-500">*</span></label><input required type="date" max={ComplianceWorkflow.today(settings.timezone)} name="actionDate" value={formData.actionDate} onChange={handleChange} className="w-full border rounded p-2 text-sm outline-none bg-white" /></div>
 
                                             <DynamicSelect label="Strain / Production Info" name="strain" options={settings.strains} settingKey="strains" required={true} />
                                             <DynamicSelect label="Destruction Reason" name="destReason" options={settings.destructionReasons} settingKey="destructionReasons" required={true} />
